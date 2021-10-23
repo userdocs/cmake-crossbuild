@@ -50,10 +50,10 @@ jobs:
         run: sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
 
       - name: Host - Create docker multiarch ${{ matrix.arch }} container
-        run: docker run --name multiarch -it -d -w /root -e "LANG=en_US.UTF-8" -e "DEBIAN_FRONTEND=noninteractive" -e CHOST=${{ env.CHOST }} -e CC=${{ env.CC }} -e AR=${{ env.AR }} -e CXX=${{ env.CXX }} -v ${{ github.workspace }}:/root ${{ matrix.os_id }}:${{ matrix.os_version_id }}
+        run: docker run --name multiarch -it -d -w /root -e 'LANG=en_US.UTF-8' -e 'DEBIAN_FRONTEND=noninteractive' -e CHOST=${{ env.CHOST }} -e CC=${{ env.CC }} -e AR=${{ env.AR }} -e CXX=${{ env.CXX }} -v ${{ github.workspace }}:/root ${{ matrix.os_id }}:${{ matrix.os_version_id }}
 
       - name: Host - Create docker binary test ${{ matrix.arch }} container
-        run: docker run --name bintest -it -d -w /root -e "LD_LIBRARY_PATH=/usr/local/lib:/usr/lib" -e "LANG=en_US.UTF-8" -e "DEBIAN_FRONTEND=noninteractive" --platform ${{ matrix.docker_platform }} -v ${{ github.workspace }}:/root ${{ matrix.docker_arch }}/${{ matrix.os_id }}:${{ matrix.os_version_id }}
+        run: docker run --name bintest -it -d -w /root -e 'LD_LIBRARY_PATH=/usr/local/lib:/usr/lib' -e 'LANG=en_US.UTF-8' -e 'DEBIAN_FRONTEND=noninteractive' --platform ${{ matrix.docker_platform }} -v ${{ github.workspace }}:/root ${{ matrix.docker_arch }}/${{ matrix.os_id }}:${{ matrix.os_version_id }}
 
       - name: Docker target - fix Ubuntu sources
         if: |
