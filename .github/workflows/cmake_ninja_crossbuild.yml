@@ -30,7 +30,7 @@ jobs:
           - os_id: debian
             os_version_id: focal
           - os_id: ubuntu
-            os_version_id: stetch
+            os_version_id: stretch
           - os_id: ubuntu
             os_version_id: buster
           - os_id: ubuntu
