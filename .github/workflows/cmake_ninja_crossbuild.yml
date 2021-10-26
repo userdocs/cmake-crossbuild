@@ -30,6 +30,8 @@ jobs:
           - os_id: debian
             os_version_id: focal
           - os_id: ubuntu
+            os_version_id: stetch
+          - os_id: ubuntu
             os_version_id: buster
           - os_id: ubuntu
             os_version_id: bullseye
@@ -40,6 +42,7 @@ jobs:
       CC: "${{ matrix.CHOST }}-gcc"
       AR: "${{ matrix.CHOST }}-ar"
       CXX: "${{ matrix.CHOST }}-g++"
+
     steps:
       - uses: actions/checkout@v2.3.4
 
@@ -57,6 +60,7 @@ jobs:
 
       - name: Host - Docker create blank env file
         run: touch env.custom
+
       - name: Host - Create docker multiarch ${{ matrix.arch }} container
         run: docker run --name multiarch -it -d --env-file env.custom -w /root -e 'LANG=en_US.UTF-8' -e 'DEBIAN_FRONTEND=noninteractive' -e CHOST=${{ env.CHOST }} -e CC=${{ env.CC }} -e AR=${{ env.AR }} -e CXX=${{ env.CXX }} -v ${{ github.workspace }}:/root ${{ matrix.os_id }}:${{ matrix.os_version_id }}
 
@@ -102,6 +106,21 @@ jobs:
           docker exec --env-file env.custom multiarch apt-get install -y libssl-dev:${{ matrix.arch }} re2c:${{ matrix.arch }} libstdc++-*-dev:${{ matrix.arch }} 
           docker exec --env-file env.custom multiarch apt-get install -y libarchive-dev:${{ matrix.arch }} libcurl4-openssl-dev:${{ matrix.arch }} libuv1-dev:${{ matrix.arch }} procps:${{ matrix.arch }} zlib1g-dev:${{ matrix.arch }}
           docker exec --env-file env.custom multiarch apt-get install -y libexpat1-dev:${{ matrix.arch }} libjsoncpp-dev:${{ matrix.arch }} libncurses5-dev:${{ matrix.arch }} librhash-dev:${{ matrix.arch }}
+
+      - name: Docker target - bionic - apt-get install gcc-8-base g++-8
+        if: matrix.arch == 'amd64' && matrix.os_version_id == 'bionic'
+        run: docker exec --env-file env.custom multiarch apt-get install -y gcc-8 g++-8
+
+      - name: Docker target - bionic - apt-get install gcc-8 g++-8 cross
+        if: matrix.arch != 'amd64' && matrix.os_version_id == 'bionic'
+        run: docker exec --env-file env.custom multiarch apt-get install -y cpp-8-${{ matrix.CHOST }} g++-8-${{ matrix.CHOST }} gcc-8-${{ matrix.CHOST }}
+
+      - name: Docker target - bionic - reconfigure build vars
+        if: matrix.os_version_id == 'bionic'
+        run: |
+          echo "CC=${{ env.CC }}-8" > env.custom
+          echo "AR=${{ env.AR }}-8" >> env.custom
+          echo "CXX=${{ env.CXX }}-8" >> env.custom
 
       - name: Git clone cmake
         run: docker exec --env-file env.custom multiarch git clone https://github.com/Kitware/CMake.git /root/cmake
