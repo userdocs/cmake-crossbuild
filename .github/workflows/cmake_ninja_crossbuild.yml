@@ -188,12 +188,6 @@ jobs:
       - name: Host - Remove version from release name and use hyphens
         run: mv -f "${{ matrix.name }}_${{ env.cmake_version }}+${{ env.ninja_version }}_${{ matrix.arch }}.deb" "${{ matrix.os_id }}-${{ matrix.os_version_id }}-${{ matrix.name }}-${{ matrix.arch }}.deb"
 
-      - name: Host - Upload artifacts
-        uses: actions/upload-artifact@v2.2.4
-        with:
-          name: "${{ matrix.os_id }}-${{ matrix.os_version_id }}-${{ matrix.name }}-${{ env.cmake_version }}-${{ env.ninja_version }}-${{ matrix.arch }}"
-          path: "${{ matrix.os_id }}-${{ matrix.os_version_id }}-${{ matrix.name }}-${{ matrix.arch }}.deb"
-
       - name: Host - "Create release - tag - assets"
         uses: ncipollo/release-action@v1
         with:
