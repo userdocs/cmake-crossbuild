@@ -1,6 +1,7 @@
 name: cmake+ninja+crossbuild+package+release
 on:
   - workflow_dispatch
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -37,16 +38,13 @@ jobs:
             os_version_id: bullseye
 
     name: ${{ matrix.os_id }}:${{ matrix.os_version_id }} ${{ matrix.name }} ${{ matrix.arch }}
+
     env:
-      CHOST: "${{ matrix.CHOST }}"
-      CC: "${{ matrix.CHOST }}-gcc"
-      AR: "${{ matrix.CHOST }}-ar"
-      CXX: "${{ matrix.CHOST }}-g++"
-      opt_dir_name: "opt/swizzin_apps"
+      opt_dir_name: "opt/local"
       prerelease: false
 
     steps:
-      - uses: actions/checkout@v2.3.4
+      - uses: actions/checkout@v2.3.5
 
       - name: Host - update
         run: sudo apt-get update
@@ -62,14 +60,20 @@ jobs:
 
       - name: Host - Create Docker template env file
         run: |
-          echo "PATH=/${{ env.opt_dir_name }}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" > env.custom
-          echo "LD_LIBRARY_PATH=/${{ env.opt_dir_name }}/lib:/usr/lib/${{ env.CHOST }}:/usr/lib:/usr/local/lib" >> env.custom
+          echo "DEBIAN_FRONTEND=noninteractive" > env.custom
+          echo "LANG=en_US.UTF-8" >> env.custom
+          echo "PATH=/${{ env.opt_dir_name }}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" >> env.custom
+          echo "LD_LIBRARY_PATH=/${{ env.opt_dir_name }}/lib:/usr/lib/${{ matrix.CHOST }}:/usr/lib:/usr/local/lib" >> env.custom
+          echo "CHOST=${{ matrix.CHOST }}" >> env.custom
+          echo "CC=${{ matrix.CHOST }}-gcc" >> env.custom
+          echo "AR=${{ matrix.CHOST }}-ar" >> env.custom
+          echo "CXX=${{ matrix.CHOST }}-g++" >> env.custom
 
       - name: Host - Create docker multiarch ${{ matrix.arch }} container
-        run: docker run --name multiarch -it -d --env-file env.custom -w /root -e 'LANG=en_US.UTF-8' -e 'DEBIAN_FRONTEND=noninteractive' -e CHOST=${{ env.CHOST }} -e CC=${{ env.CC }} -e AR=${{ env.AR }} -e CXX=${{ env.CXX }} -v ${{ github.workspace }}:/root ${{ matrix.os_id }}:${{ matrix.os_version_id }}
+        run: docker run --name multiarch -it -d --env-file env.custom -w /root -v ${{ github.workspace }}:/root ${{ matrix.os_id }}:${{ matrix.os_version_id }}
 
       - name: Host - Create docker binary test ${{ matrix.arch }} container
-        run: docker run --name bintest -it -d --env-file env.custom -w /root -e 'LANG=en_US.UTF-8' -e 'DEBIAN_FRONTEND=noninteractive' --platform ${{ matrix.docker_platform }} -v ${{ github.workspace }}:/root ${{ matrix.docker_arch }}/${{ matrix.os_id }}:${{ matrix.os_version_id }}
+        run: docker run --name bintest -it -d --env-file env.custom -w /root --platform ${{ matrix.docker_platform }} -v ${{ github.workspace }}:/root ${{ matrix.docker_arch }}/${{ matrix.os_id }}:${{ matrix.os_version_id }}
 
       - name: Docker target - fix Ubuntu sources
         if: |
@@ -122,9 +126,9 @@ jobs:
       - name: Docker target - bionic - reconfigure build vars
         if: matrix.os_version_id == 'bionic'
         run: |
-          echo "CC=${{ env.CC }}-8" >> env.custom
-          echo "AR=${{ env.AR }}-8" >> env.custom
-          echo "CXX=${{ env.CXX }}-8" >> env.custom
+          echo "CC=${{ matrix.CHOST }}-gcc-8" >> env.custom
+          echo "AR=${{ matrix.CHOST }}-ar-8" >> env.custom
+          echo "CXX=${{ matrix.CHOST }}-g++-8" >> env.custom
 
       - name: Docker target - Git clone cmake
         run: docker exec --env-file env.custom multiarch git clone https://github.com/Kitware/CMake.git /root/cmake
