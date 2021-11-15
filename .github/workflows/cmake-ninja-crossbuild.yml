@@ -149,13 +149,13 @@ jobs:
         run: |
           docker exec --env-file env.custom -w /root/ninja multiarch /root/build/${{ env.opt_dir_name}}/bin/cmake -B build \
           -D CMAKE_BUILD_TYPE="release" \
-          -D CMAKE_INSTALL_PREFIX="/root/build"
+          -D CMAKE_INSTALL_PREFIX="/root/build/${{ env.opt_dir_name}}"
 
       - name: Docker target - Build ninja
         run: docker exec --env-file env.custom -w /root/ninja multiarch /root/build/${{ env.opt_dir_name}}/bin/cmake --build build -j"$(nproc)"
 
       - name: Docker target - Install ninja
-        run: docker exec --env-file env.custom -w /root/ninja multiarch cmake --install build
+        run: docker exec --env-file env.custom -w /root/ninja multiarch /root/build/${{ env.opt_dir_name}}/bin/cmake --install build
 
       - name: Docker target - Get cmake version version - ${{ matrix.arch }}
         run: |
