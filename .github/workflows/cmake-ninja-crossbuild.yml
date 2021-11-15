@@ -133,11 +133,8 @@ jobs:
       - name: Docker target - Git clone cmake
         run: docker exec --env-file env.custom multiarch git clone https://github.com/Kitware/CMake.git /root/cmake
 
-      - name: Docker target - Bootstrap cmake
-        run: docker exec --env-file env.custom -w /root/cmake multiarch ./bootstrap --prefix=/root/build/${{ env.opt_dir_name}}
-
       - name: Docker target - Configure cmake
-        run: docker exec --env-file env.custom -w /root/cmake multiarch ./configure --prefix=/root/build/${{ env.opt_dir_name}}
+        run: docker exec --env-file env.custom -w /root/cmake multiarch ./configure --enable-ccache --prefix=/root/build/${{ env.opt_dir_name}}
 
       - name: Docker target - Make build cmake
         run: docker exec --env-file env.custom -w /root/cmake multiarch make -j$(nproc)
@@ -148,13 +145,17 @@ jobs:
       - name: Docker target - Git clone ninja
         run: docker exec --env-file env.custom multiarch git clone --shallow-submodules --recurse-submodules https://github.com/ninja-build/ninja.git /root/ninja
 
-      - name: Docker target - build ninja
+      - name: Docker target - Configure ninja
         run: |
-          docker exec --env-file env.custom -w /root/ninja multiarch /root/build/${{ env.opt_dir_name}}/bin/cmake -B build
-          docker exec --env-file env.custom -w /root/ninja multiarch /root/build/${{ env.opt_dir_name}}/bin/cmake --build build
+          docker exec --env-file env.custom -w /root/ninja multiarch /root/build/${{ env.opt_dir_name}}/bin/cmake -B build \
+          -D CMAKE_BUILD_TYPE="release" \
+          -D CMAKE_INSTALL_PREFIX="/root/build"
 
-      - name: Docker target - copy ninja
-        run: docker exec --env-file env.custom -w /root/ninja/build multiarch cp -f "ninja" "/root/build/${{ env.opt_dir_name}}/bin/ninja"
+      - name: Docker target - Build ninja
+        run: docker exec --env-file env.custom -w /root/ninja multiarch /root/build/${{ env.opt_dir_name}}/bin/cmake --build build -j"$(nproc)"
+
+      - name: Docker target - Install ninja
+        run: docker exec --env-file env.custom -w /root/ninja multiarch cmake --install build
 
       - name: Docker target - Get cmake version version - ${{ matrix.arch }}
         run: |
