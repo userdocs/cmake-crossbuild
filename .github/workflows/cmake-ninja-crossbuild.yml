@@ -153,7 +153,7 @@ jobs:
           echo "cmake_github_tag=${cmake_github_tag}" >> $GITHUB_ENV
 
       - name: Docker target - Git clone cmake
-        run: docker exec --env-file env.custom multiarch git clone --no-tags --single-branch --branch ${{ env.cmake_github_tag }} --shallow-submodules --recurse-submodules --depth 1 https://github.com/Kitware/CMake.git /root/cmake
+        run: docker exec --env-file env.custom multiarch git clone --single-branch --branch ${{ env.cmake_github_tag }} --shallow-submodules --recurse-submodules --depth 1 https://github.com/Kitware/CMake.git /root/cmake
 
       - name: Docker target - Configure cmake
         run: docker exec --env-file env.custom -w /root/cmake multiarch ./configure --enable-ccache --prefix=/root/build/${{ env.opt_dir_name}}
@@ -170,7 +170,7 @@ jobs:
           echo "ninja_github_tag=${ninja_github_tag}" >> $GITHUB_ENV
 
       - name: Docker target - Git clone ninja
-        run: docker exec --env-file env.custom multiarch git clone --no-tags --single-branch --branch ${{ env.ninja_github_tag }} --shallow-submodules --recurse-submodules --depth 1 https://github.com/ninja-build/ninja.git /root/ninja
+        run: docker exec --env-file env.custom multiarch git clone --single-branch --branch ${{ env.ninja_github_tag }} --shallow-submodules --recurse-submodules --depth 1 https://github.com/ninja-build/ninja.git /root/ninja
 
       - name: Docker target - Configure ninja
         run: |
