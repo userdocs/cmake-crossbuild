@@ -148,7 +148,9 @@ jobs:
           echo "CXX=${{ matrix.CHOST }}-g++-8" >> env.custom
 
       - name: Docker target - cmake latest release set cmake_github_tag
-        run: cmake_github_tag="$(git ls-remote -q -t --refs https://github.com/Kitware/CMake.git | awk '{sub("refs/tags/", ""); print $2 }' | awk '!/^$/' | sort -rV | head -n 1)"
+        run: |
+          cmake_github_tag="$(git ls-remote -q -t --refs https://github.com/Kitware/CMake.git | awk '{sub("refs/tags/", ""); print $2 }' | awk '!/^$/' | sort -rV | head -n 1)"
+          echo "cmake_github_tag=${cmake_github_tag}" >> $GITHUB_ENV
 
       - name: Docker target - Git clone cmake
         run: docker exec --env-file env.custom multiarch git clone --no-tags --single-branch --branch ${{ env.cmake_github_tag }} --shallow-submodules --recurse-submodules --depth 1 https://github.com/Kitware/CMake.git /root/cmake
@@ -163,7 +165,9 @@ jobs:
         run: docker exec --env-file env.custom -w /root/cmake multiarch make install
 
       - name: Docker target - ninja latest release set ninja_github_tag
-        run: ninja_github_tag="$(git ls-remote -q -t --refs https://github.com/ninja-build/ninja.git | awk '/v/{sub("refs/tags/", ""); print $2 }' | awk '!/^$/' | sort -rV)"
+        run: |
+          ninja_github_tag="$(git ls-remote -q -t --refs https://github.com/ninja-build/ninja.git | awk '/v/{sub("refs/tags/", ""); print $2 }' | awk '!/^$/' | sort -rV | head -n 1)"
+          echo "ninja_github_tag=${ninja_github_tag}" >> $GITHUB_ENV
 
       - name: Docker target - Git clone ninja
         run: docker exec --env-file env.custom multiarch git clone --no-tags --single-branch --branch ${{ env.ninja_github_tag }} --shallow-submodules --recurse-submodules --depth 1 https://github.com/ninja-build/ninja.git /root/ninja
