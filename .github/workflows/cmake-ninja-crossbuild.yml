@@ -167,7 +167,8 @@ jobs:
 
       - name: Docker target - ninja latest release set ninja_github_tag
         run: |
-          ninja_github_tag="$(git ls-remote -q -t --refs https://github.com/ninja-build/ninja.git | awk '/v/{sub("refs/tags/", ""); print $2 }' | awk '!/^$/' | sort -rV | head -n 1)"
+          ninja_github_tag="master"
+          # ninja_github_tag="$(git ls-remote -q -t --refs https://github.com/ninja-build/ninja.git | awk '/v/{sub("refs/tags/", ""); print $2 }' | awk '!/^$/' | sort -rV | head -n 1)"
           echo "ninja_github_tag=${ninja_github_tag}" >> $GITHUB_ENV
 
       - name: Docker target - Git clone ninja
