@@ -186,8 +186,8 @@ jobs:
 
       - name: Docker target - Get cmake and ninja version versions - ${{ matrix.arch }}
         run: |
-          docker exec --env-file env.custom -w /root bintest bash -c '/root/build/${{ env.opt_dir_name}}/bin/cmake --version 2> /dev/null | awk "NR==1{print \$3}" > cmake.version'
-          docker exec --env-file env.custom -w /root bintest bash -c '/root/build/${{ env.opt_dir_name}}/bin/ninja --version 2> /dev/null > ninja.version'
+          docker exec --env-file env.custom -w /root bintest bash -c '/root/build/${{ env.opt_dir_name }}/bin/cmake --version 2> /dev/null | awk "NR==1{print \$3}" > cmake.version'
+          docker exec --env-file env.custom -w /root bintest bash -c '/root/build/${{ env.opt_dir_name }}/bin/ninja --version 2> /dev/null > ninja.version'
 
       - name: Host - Set cmake version to variable
         run: |
