@@ -203,7 +203,7 @@ jobs:
         run: echo "cmake-deb-deps=openssl" >> $GITHUB_ENV
 
       - name: Host - Create deb packages
-        uses: jiro4989/build-deb-action@v2.5.2
+        uses: jiro4989/build-deb-action@v2.6.0
         with:
           package: "${{ matrix.name }}"
           package_root: build
