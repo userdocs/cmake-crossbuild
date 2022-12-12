@@ -203,7 +203,7 @@ jobs:
         run: echo "cmake-deb-deps=openssl" >> $GITHUB_ENV
 
       - name: Host - Create deb packages
-        uses: jiro4989/build-deb-action@v2.7.0
+        uses: jiro4989/build-deb-action@v2
         with:
           package: "${{ matrix.name }}"
           package_root: build
@@ -218,7 +218,7 @@ jobs:
         run: mv -f "${{ matrix.name }}_${{ env.cmake_version }}+${{ env.ninja_version }}_${{ matrix.arch }}.deb" "${{ matrix.os_id }}-${{ matrix.os_version_id }}-${{ matrix.name }}-${{ matrix.arch }}.deb"
 
       - name: Host - "Create release - tag - assets"
-        uses: ncipollo/release-action@v1.11.1
+        uses: ncipollo/release-action@v1
         with:
           prerelease: ${{ env.prerelease }}
           artifacts: "${{ matrix.os_id }}-${{ matrix.os_version_id }}-${{ matrix.name }}-${{ matrix.arch }}.deb"
