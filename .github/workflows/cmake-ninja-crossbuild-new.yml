@@ -42,18 +42,18 @@ jobs:
           echo "cmake_github_tag=${cmake_github_tag}" >> $GITHUB_ENV
 
       - name: Git clone cmake
-        run: git clone --single-branch --branch ${{ env.cmake_github_tag }} --shallow-submodules --recurse-submodules --depth 1 https://github.com/Kitware/CMake.git $HOME/cmake
+        run: git clone --single-branch --branch ${{ env.cmake_github_tag }} --shallow-submodules --recurse-submodules --depth 1 https://github.com/Kitware/CMake.git /home/username/cmake
 
       - name: Configure cmake
-        working-directory: $HOME/cmake
-        run: ./configure --parallel=$(nproc) --no-system-libs --enable-ccache --prefix=$HOME/build
+        working-directory: /home/username/cmake
+        run: ./configure --parallel=$(nproc) --no-system-libs --enable-ccache --prefix=/home/username/build
 
       - name: Make build cmake
-        working-directory: $HOME/cmake
+        working-directory: /home/username/cmake
         run: make -j$(nproc)
 
       - name: Make install cmake
-        working-directory: $HOME/cmake
+        working-directory: /home/username/cmake
         run: make install
 
       - name: ninja latest release set ninja_github_tag
@@ -62,27 +62,27 @@ jobs:
           echo "ninja_github_tag=${ninja_github_tag}" >> $GITHUB_ENV
 
       - name: Git clone ninja
-        run: git clone --single-branch --branch ${{ env.ninja_github_tag }} --shallow-submodules --recurse-submodules --depth 1 https://github.com/ninja-build/ninja.git $HOME/ninja
+        run: git clone --single-branch --branch ${{ env.ninja_github_tag }} --shallow-submodules --recurse-submodules --depth 1 https://github.com/ninja-build/ninja.git /home/username/ninja
 
       - name: Configure ninja
-        working-directory: $HOME/ninja
+        working-directory: /home/username/ninja
         run: |
-          $HOME/build/bin/cmake -B build \
+          /home/username/build/bin/cmake -B build \
           -D CMAKE_BUILD_TYPE="release" \
-          -D CMAKE_INSTALL_PREFIX="$HOME/build"
+          -D CMAKE_INSTALL_PREFIX="/home/username/build"
 
       - name: Build ninja
-        working-directory: $HOME/ninja
-        run: $HOME/build/bin/cmake --build build -j"$(nproc)"
+        working-directory: /home/username/ninja
+        run: /home/username/build/bin/cmake --build build -j"$(nproc)"
 
       - name: Install ninja
-        working-directory: $HOME/ninja
-        run: $HOME/build/bin/cmake --install build
+        working-directory: /home/username/ninja
+        run: /home/username/build/bin/cmake --install build
 
       - name: Get cmake and ninja version versions - ${{ matrix.arch }}
         run: |
-          $HOME/build/bin/cmake --version 2> /dev/null | awk "NR==1{print \$3}" > cmake.version
-          $HOME/build/bin/ninja --version 2> /dev/null > ninja.version
+          /home/username/build/bin/cmake --version 2> /dev/null | awk "NR==1{print \$3}" > cmake.version
+          /home/username/build/bin/ninja --version 2> /dev/null > ninja.version
 
       - name: Host - Set cmake version to variable
         run: |
