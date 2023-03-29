@@ -6,110 +6,35 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: ${{ matrix.os_id }}:${{ matrix.os_version_id }}
-      env:
-        DEBIAN_FRONTEND: noninteractive
-        LANG: en_US.UTF-8
-        LANGUAGE: en_US.UTF-8
-        LC_ALL: en_US.UTF-8
-        LC_CTYPE: en_US.UTF-8
-        PATH: /opt/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-        LD_LIBRARY_PATH: /opt/local/lib:/usr/lib/${{ matrix.CHOST }}:/usr/lib:/usr/local/lib
-        CHOST: ${{ matrix.CHOST }}
-        CC: ${{ matrix.CHOST }}-gcc
-        AR: ${{ matrix.CHOST }}-ar
-        CXX: ${{ matrix.CHOST }}-g++
+      image: ghcr.io/${{ github.repository }}:${{ matrix.os_id }}-${{ matrix.os_version_id }}-${{ matrix.arch }}
     strategy:
       fail-fast: false
       matrix:
         name: [cmake]
         os_id: [debian, ubuntu]
-        os_version_id: [stretch, buster, bullseye, bionic, focal, jammy]
+        os_codename: [stretch, buster, bullseye, bionic, focal, jammy]
         arch: [amd64, armhf, arm64]
-        include:
-          - arch: amd64
-            CHOST: "x86_64-linux-gnu"
-          - arch: armhf
-            CHOST: "arm-linux-gnueabihf"
-          - arch: arm64
-            CHOST: "aarch64-linux-gnu"
         exclude:
           - os_id: debian
-            os_version_id: bionic
+            os_codename: bionic
           - os_id: debian
-            os_version_id: focal
+            os_codename: focal
           - os_id: debian
-            os_version_id: jammy
+            os_codename: jammy
           - os_id: ubuntu
-            os_version_id: stretch
+            os_codename: stretch
           - os_id: ubuntu
-            os_version_id: buster
+            os_codename: buster
           - os_id: ubuntu
-            os_version_id: bullseye
+            os_codename: bullseye
 
-    name: ${{ matrix.os_id }}:${{ matrix.os_version_id }} ${{ matrix.name }} ${{ matrix.arch }}
+    name: ${{ matrix.os_id }}:${{ matrix.os_codename }} ${{ matrix.name }} ${{ matrix.arch }}
 
     steps:
       - uses: actions/checkout@v3
 
       - run: apt-get update
-      # - run: apt-get -y upgrade
-      - run: apt-get install -y build-essential cmake curl pkg-config automake libtool git perl python3 python3-dev unzip ccache openssl jq locales locales-all
-
-      - name: Install host qemu-static
-        run: apt-get install -y qemu binfmt-support qemu-user-static
-
-      - name: fix Debian buster armel sources
-        if: |
-          matrix.os_version_id == 'buster' && matrix.arch == 'armel'
-        run: |
-          echo "deb [arch=${{ matrix.arch }}] http://deb.debian.org/debian buster-proposed-updates main" >> /etc/apt/sources.list
-
-      - name: fix Ubuntu sources
-        if: |
-          matrix.os_id == 'ubuntu' && matrix.arch != 'amd64'
-        run: |
-          echo "deb [arch=${{ matrix.arch }}] http://ports.ubuntu.com/ubuntu-ports ${{ matrix.os_version_id }} main restricted universe multiverse" > /etc/apt/sources.list
-          echo "deb [arch=${{ matrix.arch }}] http://ports.ubuntu.com/ubuntu-ports ${{ matrix.os_version_id }}-updates main restricted universe multiverse" >> /etc/apt/sources.list
-          echo "deb [arch=${{ matrix.arch }}] http://ports.ubuntu.com/ubuntu-ports ${{ matrix.os_version_id }}-security main restricted universe multiverse" >> /etc/apt/sources.list
-          echo "deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ ${{ matrix.os_version_id }} main restricted universe multiverse" >> /etc/apt/sources.list
-          echo "deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ ${{ matrix.os_version_id }}-updates main restricted universe multiverse" >> /etc/apt/sources.list
-          echo "deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ ${{ matrix.os_version_id }}-backports restricted universe multiverse" >> /etc/apt/sources.list
-          echo "deb [arch=amd64] http://security.ubuntu.com/ubuntu/ ${{ matrix.os_version_id }}-security main restricted universe multiverse" >> /etc/apt/sources.list
-
-      - name: dpkg configure arch
-        run: dpkg --add-architecture ${{ matrix.arch }}
-
-      - name: Run apt-get update
-        run: apt-get update
-
-      # - name: Run apt-get upgrade
-      #   run: apt-get upgrade -y
-
-      - name: apt-get install crossbuild-essential
-        if: matrix.arch != 'amd64'
-        run: apt-get install -y crossbuild-essential-${{ matrix.arch }}
-
-      - name: apt-get install cross target deps
-        run: |
-          apt-get install -y libssl-dev:${{ matrix.arch }} re2c:${{ matrix.arch }} libstdc++-*-dev:${{ matrix.arch }} 
-          apt-get install -y libarchive-dev:${{ matrix.arch }} libcurl4-openssl-dev:${{ matrix.arch }} libuv1-dev:${{ matrix.arch }} procps:${{ matrix.arch }} zlib1g-dev:${{ matrix.arch }}
-          apt-get install -y libexpat1-dev:${{ matrix.arch }} libjsoncpp-dev:${{ matrix.arch }} libncurses5-dev:${{ matrix.arch }} librhash-dev:${{ matrix.arch }}
-
-      - name: bionic - apt-get install gcc-8-base g++-8
-        if: matrix.arch == 'amd64' && matrix.os_version_id == 'bionic'
-        run: apt-get install -y gcc-8 g++-8
-
-      - name: bionic - apt-get install gcc-8 g++-8 cross
-        if: matrix.arch != 'amd64' && matrix.os_version_id == 'bionic'
-        run: apt-get install -y cpp-8-${{ matrix.CHOST }} g++-8-${{ matrix.CHOST }} gcc-8-${{ matrix.CHOST }}
-
-      - name: bionic - reconfigure build vars
-        if: matrix.os_version_id == 'bionic'
-        run: |
-          echo "CC=${{ matrix.CHOST }}-gcc-8" >> $GITHUB_ENV
-          echo "AR=${{ matrix.CHOST }}-gcc-ar-8" >> $GITHUB_ENV
-          echo "CXX=${{ matrix.CHOST }}-g++-8" >> $GITHUB_ENV
+      - run: apt-get -y upgrade
 
       - name: cmake latest release set cmake_github_tag
         run: |
@@ -120,19 +45,16 @@ jobs:
         run: git clone --single-branch --branch ${{ env.cmake_github_tag }} --shallow-submodules --recurse-submodules --depth 1 https://github.com/Kitware/CMake.git $HOME/cmake
 
       - name: Configure cmake
-        run: |
-          cd ~/cmake
-          ./configure --parallel=$(nproc) --no-system-libs --enable-ccache --prefix=~/cmake
+        working-directory: $HOME/cmake
+        run: ./configure --parallel=$(nproc) --no-system-libs --enable-ccache --prefix=$HOME/build
 
       - name: Make build cmake
-        run: |
-          cd ~/cmake
-          make -j$(nproc)
+        working-directory: $HOME/cmake
+        run: make -j$(nproc)
 
       - name: Make install cmake
-        run: |
-          cd ~/cmake
-          make install
+        working-directory: $HOME/cmake
+        run: make install
 
       - name: ninja latest release set ninja_github_tag
         run: |
@@ -143,15 +65,18 @@ jobs:
         run: git clone --single-branch --branch ${{ env.ninja_github_tag }} --shallow-submodules --recurse-submodules --depth 1 https://github.com/ninja-build/ninja.git $HOME/ninja
 
       - name: Configure ninja
+        working-directory: $HOME/ninja
         run: |
           $HOME/build/bin/cmake -B build \
           -D CMAKE_BUILD_TYPE="release" \
           -D CMAKE_INSTALL_PREFIX="$HOME/build"
 
       - name: Build ninja
+        working-directory: $HOME/ninja
         run: $HOME/build/bin/cmake --build build -j"$(nproc)"
 
       - name: Install ninja
+        working-directory: $HOME/ninja
         run: $HOME/build/bin/cmake --install build
 
       - name: Get cmake and ninja version versions - ${{ matrix.arch }}
@@ -182,16 +107,16 @@ jobs:
           version: "${{ env.cmake_version }}+${{ env.ninja_version }}"
           depends: "${{ env.cmake-deb-deps }}"
           arch: "${{ matrix.arch }}"
-          desc: "${{ matrix.name }}-${{ matrix.arch }} for ${{ matrix.os_id }}-${{ matrix.os_version_id }}"
+          desc: "${{ matrix.name }}-${{ matrix.arch }} for ${{ matrix.os_id }}-${{ matrix.os_codename }}"
 
       - name: Host - Remove version from release name and use hyphens
-        run: mv -f "${{ matrix.name }}_${{ env.cmake_version }}+${{ env.ninja_version }}_${{ matrix.arch }}.deb" "${{ matrix.os_id }}-${{ matrix.os_version_id }}-${{ matrix.name }}-${{ matrix.arch }}.deb"
+        run: mv -f "${{ matrix.name }}_${{ env.cmake_version }}+${{ env.ninja_version }}_${{ matrix.arch }}.deb" "${{ matrix.os_id }}-${{ matrix.os_codename }}-${{ matrix.name }}-${{ matrix.arch }}.deb"
 
       - name: Host - "Create release - tag - assets"
         uses: ncipollo/release-action@v1
         with:
           prerelease: ${{ env.prerelease }}
-          artifacts: "${{ matrix.os_id }}-${{ matrix.os_version_id }}-${{ matrix.name }}-${{ matrix.arch }}.deb"
+          artifacts: "${{ matrix.os_id }}-${{ matrix.os_codename }}-${{ matrix.name }}-${{ matrix.arch }}.deb"
           replacesArtifacts: true
           tag: "${{ env.cmake_version }}_${{ env.ninja_version }}"
           name: "cmake ${{ env.cmake_version }} ninja ${{ env.ninja_version }}"
