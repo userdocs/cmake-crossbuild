@@ -169,17 +169,32 @@ jobs:
           ninja_version="$(<ninja.version)"
           echo "ninja_version=${ninja_version%\.git}" >> $GITHUB_ENV
 
-      - name: archive ${{ matrix.arch_type}} cmake and ninja
-        run: tar -czvf ${{ matrix.os_id }}-${{ matrix.os_version_id }}-${{ matrix.name }}-${{ matrix.arch }}.tar.gz build/
+      - name: Host - Set deb dependencies for cmake and ninja
+        run: echo "cmake-deb-deps=openssl" >> $GITHUB_ENV
+
+      - name: Host - Create deb packages
+        uses: jiro4989/build-deb-action@v2
+        with:
+          package: "${{ matrix.name }}"
+          package_root: build
+          maintainer: userdocs
+          compress_type: gzip
+          version: "${{ env.cmake_version }}+${{ env.ninja_version }}"
+          depends: "${{ env.cmake-deb-deps }}"
+          arch: "${{ matrix.arch }}"
+          desc: "${{ matrix.name }}-${{ matrix.arch }} for ${{ matrix.os_id }}-${{ matrix.os_version_id }}"
+
+      - name: Host - Remove version from release name and use hyphens
+        run: mv -f "${{ matrix.name }}_${{ env.cmake_version }}+${{ env.ninja_version }}_${{ matrix.arch }}.deb" "${{ matrix.os_id }}-${{ matrix.os_version_id }}-${{ matrix.name }}-${{ matrix.arch }}.deb"
 
       - name: Host - "Create release - tag - assets"
         uses: ncipollo/release-action@v1
         with:
-          prerelease: false
-          artifacts: "${{ matrix.os_id }}-${{ matrix.os_version_id }}-${{ matrix.name }}-${{ matrix.arch }}.tar.gz"
+          prerelease: ${{ env.prerelease }}
+          artifacts: "${{ matrix.os_id }}-${{ matrix.os_version_id }}-${{ matrix.name }}-${{ matrix.arch }}.deb"
           replacesArtifacts: true
           tag: "${{ env.cmake_version }}_${{ env.ninja_version }}"
           name: "cmake ${{ env.cmake_version }} ninja ${{ env.ninja_version }}"
-          body: "cmake and ninja built from github latest stable release on amd64 armel armhf arm64 for - Debian Buster Bullseye - Ubuntu bionic Focal Jammy"
+          body: "cmake and ninja built from github latest release on amd64 arm64 armhf for Debian Stretch Buster Bullseye and Ubuntu Bionic Focal Jammy"
           allowUpdates: true
           token: "${{ secrets.GITHUB_TOKEN }}"
