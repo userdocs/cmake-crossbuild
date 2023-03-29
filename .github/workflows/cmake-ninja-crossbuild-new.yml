@@ -1,4 +1,4 @@
-name: qbt cmake ninja crossbuild package release new
+name: cmake ninja crossbuild package release new
 on:
   workflow_dispatch:
 
