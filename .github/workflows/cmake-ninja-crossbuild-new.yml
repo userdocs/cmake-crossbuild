@@ -35,6 +35,7 @@ jobs:
 
       - run: sudo apt-get update
       - run: sudo apt-get -y upgrade
+      - run: sudo apt-get install -y build-essential
 
       - name: cmake latest release set cmake_github_tag
         run: |
@@ -44,14 +45,9 @@ jobs:
       - name: Git clone cmake
         run: git clone --single-branch --branch ${{ env.cmake_github_tag }} --shallow-submodules --recurse-submodules --depth 1 https://github.com/Kitware/CMake.git /home/username/cmake
 
-      # - name: Configure cmake
-      #   working-directory: /home/username/cmake
-      #   run: ./configure --parallel=$(nproc) --no-system-libs --enable-ccache --prefix=/home/username/build
-
-      - name: Configure cmake 
-        run: |
-          cd /home/username/cmake
-          cmake -B build -D CMAKE_BUILD_TYPE="release" -D CMAKE_INSTALL_PREFIX="/home/username/build"
+      - name: Configure cmake
+        working-directory: /home/username/cmake
+        run: ./configure --parallel=$(nproc) --no-system-libs --enable-ccache --prefix=/home/username/build
 
       - name: Make build cmake
         working-directory: /home/username/cmake
