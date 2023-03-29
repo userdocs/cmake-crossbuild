@@ -1,0 +1,182 @@
+name: qbt cmake ninja crossbuild package release new
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ matrix.os_id }}:${{ matrix.os_version_id }}
+      env:
+        DEBIAN_FRONTEND: noninteractive
+        LANG: en_US.UTF-8
+        LANGUAGE: en_US.UTF-8
+        LC_ALL: en_US.UTF-8
+        LC_CTYPE: en_US.UTF-8
+        PATH: /opt/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+        LD_LIBRARY_PATH: /opt/local/lib:/usr/lib/${{ matrix.CHOST }}:/usr/lib:/usr/local/lib
+        CHOST: ${{ matrix.CHOST }}
+        CC: ${{ matrix.CHOST }}-gcc
+        AR: ${{ matrix.CHOST }}-ar
+        CXX: ${{ matrix.CHOST }}-g++
+    strategy:
+      fail-fast: false
+      matrix:
+        name: [cmake]
+        os_version_id: [stretch, buster, bullseye, bionic, focal, jammy]
+        arch: [amd64, armel, armhf, arm64]
+        include:
+          - arch: amd64
+            CHOST: "x86_64-linux-gnu"
+          - arch: armel
+            CHOST: "arm-linux-gnueabi"
+          - arch: armhf
+            CHOST: "arm-linux-gnueabihf"
+          - arch: arm64
+            CHOST: "aarch64-linux-gnu"
+        exclude:
+          - os_id: debian
+            os_version_id: focal
+          - os_id: debian
+            os_version_id: jammy
+          - os_id: ubuntu
+            os_version_id: bullseye
+          - os_id: ubuntu
+            arch: armel
+
+    name: ${{ matrix.os_id }}:${{ matrix.os_version_id }} ${{ matrix.name }} ${{ matrix.arch }}
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - run: apt-get update
+      # - run: apt-get -y upgrade
+      - run: apt-get install -y build-essential cmake curl pkg-config automake libtool git perl python3 python3-dev unzip ccache openssl jq locales locales-all
+
+      - name: Install host qemu-static
+        run: apt-get install -y qemu binfmt-support qemu-user-static
+
+      - name: fix Debian buster armel sources
+        if: |
+          matrix.os_version_id == 'buster' && matrix.arch == 'armel'
+        run: |
+          echo "deb [arch=${{ matrix.arch }}] http://deb.debian.org/debian buster-proposed-updates main" >> /etc/apt/sources.list
+
+      - name: fix Ubuntu sources
+        if: |
+          matrix.os_id == 'ubuntu' && matrix.arch != 'amd64'
+        run: |
+          echo "deb [arch=${{ matrix.arch }}] http://ports.ubuntu.com/ubuntu-ports ${{ matrix.os_version_id }} main restricted universe multiverse" > /etc/apt/sources.list
+          echo "deb [arch=${{ matrix.arch }}] http://ports.ubuntu.com/ubuntu-ports ${{ matrix.os_version_id }}-updates main restricted universe multiverse" >> /etc/apt/sources.list
+          echo "deb [arch=${{ matrix.arch }}] http://ports.ubuntu.com/ubuntu-ports ${{ matrix.os_version_id }}-security main restricted universe multiverse" >> /etc/apt/sources.list
+          echo "deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ ${{ matrix.os_version_id }} main restricted universe multiverse" >> /etc/apt/sources.list
+          echo "deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ ${{ matrix.os_version_id }}-updates main restricted universe multiverse" >> /etc/apt/sources.list
+          echo "deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ ${{ matrix.os_version_id }}-backports restricted universe multiverse" >> /etc/apt/sources.list
+          echo "deb [arch=amd64] http://security.ubuntu.com/ubuntu/ ${{ matrix.os_version_id }}-security main restricted universe multiverse" >> /etc/apt/sources.list
+
+      - name: dpkg configure arch
+        run: dpkg --add-architecture ${{ matrix.arch }}
+
+      - name: Run apt-get update
+        run: apt-get update
+
+      # - name: Run apt-get upgrade
+      #   run: apt-get upgrade -y
+
+      - name: apt-get install crossbuild-essential
+        if: matrix.arch != 'amd64'
+        run: apt-get install -y crossbuild-essential-${{ matrix.arch }}
+
+      - name: apt-get install cross target deps
+        run: |
+          apt-get install -y libssl-dev:${{ matrix.arch }} re2c:${{ matrix.arch }} libstdc++-*-dev:${{ matrix.arch }} 
+          apt-get install -y libarchive-dev:${{ matrix.arch }} libcurl4-openssl-dev:${{ matrix.arch }} libuv1-dev:${{ matrix.arch }} procps:${{ matrix.arch }} zlib1g-dev:${{ matrix.arch }}
+          apt-get install -y libexpat1-dev:${{ matrix.arch }} libjsoncpp-dev:${{ matrix.arch }} libncurses5-dev:${{ matrix.arch }} librhash-dev:${{ matrix.arch }}
+
+      - name: bionic - apt-get install gcc-8-base g++-8
+        if: matrix.arch == 'amd64' && matrix.os_version_id == 'bionic'
+        run: apt-get install -y gcc-8 g++-8
+
+      - name: bionic - apt-get install gcc-8 g++-8 cross
+        if: matrix.arch != 'amd64' && matrix.os_version_id == 'bionic'
+        run: apt-get install -y cpp-8-${{ matrix.CHOST }} g++-8-${{ matrix.CHOST }} gcc-8-${{ matrix.CHOST }}
+
+      - name: bionic - reconfigure build vars
+        if: matrix.os_version_id == 'bionic'
+        run: |
+          echo "CC=${{ matrix.CHOST }}-gcc-8" >> $GITHUB_ENV
+          echo "AR=${{ matrix.CHOST }}-gcc-ar-8" >> $GITHUB_ENV
+          echo "CXX=${{ matrix.CHOST }}-g++-8" >> $GITHUB_ENV
+
+      - name: cmake latest release set cmake_github_tag
+        run: |
+          cmake_github_tag="$(git ls-remote -q -t --refs https://github.com/Kitware/CMake.git | awk '{sub("refs/tags/", "");sub("(.*)-rc(.*)", ""); print $2 }' | awk '!/^$/' | sort -rV | head -n 1)"
+          echo "cmake_github_tag=${cmake_github_tag}" >> $GITHUB_ENV
+
+      - name: Git clone cmake
+        run: git clone --single-branch --branch ${{ env.cmake_github_tag }} --shallow-submodules --recurse-submodules --depth 1 https://github.com/Kitware/CMake.git $HOME/cmake
+
+      - name: Configure cmake
+        run: |
+          cd ~/cmake
+          ./configure --parallel=$(nproc) --no-system-libs --enable-ccache --prefix=~/cmake
+
+      - name: Make build cmake
+        run: |
+          cd ~/cmake
+          make -j$(nproc)
+
+      - name: Make install cmake
+        run: |
+          cd ~/cmake
+          make install
+
+      - name: ninja latest release set ninja_github_tag
+        run: |
+          ninja_github_tag="$(git ls-remote -q -t --refs https://github.com/ninja-build/ninja.git | awk '/v/{sub("refs/tags/", ""); print $2 }' | awk '!/^$/' | sort -rV | head -n 1)"
+          echo "ninja_github_tag=${ninja_github_tag}" >> $GITHUB_ENV
+
+      - name: Git clone ninja
+        run: git clone --single-branch --branch ${{ env.ninja_github_tag }} --shallow-submodules --recurse-submodules --depth 1 https://github.com/ninja-build/ninja.git $HOME/ninja
+
+      - name: Configure ninja
+        run: |
+          $HOME/build/bin/cmake -B build \
+          -D CMAKE_BUILD_TYPE="release" \
+          -D CMAKE_INSTALL_PREFIX="$HOME/build"
+
+      - name: Build ninja
+        run: $HOME/build/bin/cmake --build build -j"$(nproc)"
+
+      - name: Install ninja
+        run: $HOME/build/bin/cmake --install build
+
+      - name: Get cmake and ninja version versions - ${{ matrix.arch }}
+        run: |
+          $HOME/build/bin/cmake --version 2> /dev/null | awk "NR==1{print \$3}" > cmake.version
+          $HOME/build/bin/ninja --version 2> /dev/null > ninja.version
+
+      - name: Host - Set cmake version to variable
+        run: |
+          cmake_version="$(<cmake.version)"
+          echo "cmake_version=${cmake_version%%-*}" >> $GITHUB_ENV
+
+      - name: Host - Set ninja version to variable
+        run: |
+          ninja_version="$(<ninja.version)"
+          echo "ninja_version=${ninja_version%\.git}" >> $GITHUB_ENV
+
+      - name: archive ${{ matrix.arch_type}} cmake and ninja
+        run: tar -czvf ${{ matrix.os_id }}-${{ matrix.os_version_id }}-${{ matrix.name }}-${{ matrix.arch }}.tar.gz build/
+
+      - name: Host - "Create release - tag - assets"
+        uses: ncipollo/release-action@v1
+        with:
+          prerelease: false
+          artifacts: "${{ matrix.os_id }}-${{ matrix.os_version_id }}-${{ matrix.name }}-${{ matrix.arch }}.tar.gz"
+          replacesArtifacts: true
+          tag: "${{ env.cmake_version }}_${{ env.ninja_version }}"
+          name: "cmake ${{ env.cmake_version }} ninja ${{ env.ninja_version }}"
+          body: "cmake and ninja built from github latest stable release on amd64 armel armhf arm64 for - Debian Buster Bullseye - Ubuntu bionic Focal Jammy"
+          allowUpdates: true
+          token: "${{ secrets.GITHUB_TOKEN }}"
