@@ -34,8 +34,8 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - run: apt-get update
-      - run: apt-get -y upgrade
+      - run: sudo apt-get update
+      - run: sudo apt-get -y upgrade
 
       - name: cmake latest release set cmake_github_tag
         run: |
