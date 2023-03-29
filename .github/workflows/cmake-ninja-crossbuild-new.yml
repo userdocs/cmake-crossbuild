@@ -23,8 +23,9 @@ jobs:
       fail-fast: false
       matrix:
         name: [cmake]
+        os_id: [debian, ubuntu]
         os_version_id: [stretch, buster, bullseye, bionic, focal, jammy]
-        arch: [amd64, armel, armhf, arm64]
+        arch: [amd64, armhf, arm64]
         include:
           - arch: amd64
             CHOST: "x86_64-linux-gnu"
