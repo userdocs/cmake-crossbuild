@@ -29,8 +29,6 @@ jobs:
         include:
           - arch: amd64
             CHOST: "x86_64-linux-gnu"
-          - arch: armel
-            CHOST: "arm-linux-gnueabi"
           - arch: armhf
             CHOST: "arm-linux-gnueabihf"
           - arch: arm64
