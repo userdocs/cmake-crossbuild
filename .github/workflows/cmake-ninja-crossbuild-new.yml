@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/userdocs/dcb:${{ matrix.os_id }}-${{ matrix.os_codename }}-${{ matrix.arch }}
-      options: --user 1001
+      options: --user 1000:1000
     strategy:
       fail-fast: false
       matrix:
