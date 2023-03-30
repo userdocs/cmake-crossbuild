@@ -30,9 +30,23 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+        
+      - name: Host - Create Docker template env file
+        run: |
+          echo "DEBIAN_FRONTEND=noninteractive" > env.custom
+          echo "LANG=en_US.UTF-8" >> env.custom
+          echo "LANGUAGE=en_US.UTF-8" >> env.custom
+          echo "LC_ALL=en_US.UTF-8" >> env.custom
+          echo "LC_CTYPE=en_US.UTF-8" >> env.custom
+          echo "PATH=/${{ env.opt_dir_name }}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" >> env.custom
+          echo "LD_LIBRARY_PATH=/${{ env.opt_dir_name }}/lib:/usr/lib/${{ matrix.CHOST }}:/usr/lib:/usr/local/lib" >> env.custom
+          echo "CHOST=${{ matrix.CHOST }}" >> env.custom
+          echo "CC=${{ matrix.CHOST }}-gcc" >> env.custom
+          echo "AR=${{ matrix.CHOST }}-ar" >> env.custom
+          echo "CXX=${{ matrix.CHOST }}-g++" >> env.custom
 
       - name: Host - Create docker multiarch ${{ matrix.arch }} container
-        run: docker run --name multiarch -it -d -w /root -v ${{ github.workspace }}:/root ghcr.io/userdocs/dcb:${{ matrix.os_id }}-${{ matrix.os_codename }}-${{ matrix.arch }}
+        run: docker run --name multiarch -it -d --env-file env.custom -w /root -v ${{ github.workspace }}:/root ghcr.io/userdocs/dcb:${{ matrix.os_id }}-${{ matrix.os_codename }}-${{ matrix.arch }}
 
       - name: cmake latest release set cmake_github_tag
         run: |
@@ -43,13 +57,13 @@ jobs:
         run: git clone --single-branch --branch ${{ env.cmake_github_tag }} --shallow-submodules --recurse-submodules --depth 1 https://github.com/Kitware/CMake.git cmake
 
       - name: Configure cmake
-        run: docker exec -w /root/cmake multiarch ./configure --parallel=$(nproc) --no-system-libs --enable-ccache --prefix=/root/build
+        run: docker exec --env-file env.custom -w /root/cmake multiarch ./configure --parallel=$(nproc) --no-system-libs --enable-ccache --prefix=/root/build
 
       - name: Make build cmake
-        run: docker exec -w /root/cmake multiarch make -j$(nproc)
+        run: docker exec --env-file env.custom -w /root/cmake multiarch make -j$(nproc)
 
       - name: Make install cmake
-        run: docker exec -w /root/cmake multiarch make install
+        run: docker exec --env-file env.custom -w /root/cmake multiarch make install
 
       - name: ninja latest release set ninja_github_tag
         run: |
