@@ -2,6 +2,10 @@ name: cmake ninja crossbuild package release
 on:
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -48,17 +52,14 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Host - phased updates # https://github.com/actions/runner-images/issues/7192
+        run: echo 'APT::Get::Always-Include-Phased-Updates "false";' | sudo tee /etc/apt/apt.conf.d/99-phased-updates
+
       - name: Host - update
         run: sudo apt-get update
 
       - name: Host - upgrade
         run: sudo apt-get -y upgrade
-
-      - name: Host - Install host qemu-static
-        run: sudo apt-get install -y qemu binfmt-support qemu-user-static
-
-      - name: Host - Docker multiarch bootstrap
-        run: sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
 
       - name: Host - Create Docker template env file
         run: |
