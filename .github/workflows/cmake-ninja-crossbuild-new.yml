@@ -44,7 +44,7 @@ jobs:
 
       - name: Configure cmake
         working-directory: /root/cmake
-        run: ./configure --parallel=$(nproc) --no-system-libs --enable-ccache --prefix=../build
+        run: ./bootstrap --parallel=$(nproc) --no-system-libs --enable-ccache --prefix=../build
 
       - name: Make build cmake
         working-directory: /root/cmake
