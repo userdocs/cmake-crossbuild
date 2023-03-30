@@ -47,16 +47,13 @@ jobs:
         run: git clone --single-branch --branch ${{ env.cmake_github_tag }} --shallow-submodules --recurse-submodules --depth 1 https://github.com/Kitware/CMake.git /root/cmake
 
       - name: Configure cmake
-        working-directory: /root/cmake
-        run: ./bootstrap --parallel=$(nproc) --no-system-libs --enable-ccache --prefix=../build
+        run: cd /root/cmake && ./bootstrap --parallel=$(nproc) --no-system-libs --enable-ccache --prefix=../build
 
       - name: Make build cmake
-        working-directory: /root/cmake
-        run: make -j $(nproc)
+        run: cd /root/cmake && make -j $(nproc)
 
       - name: Make install cmake
-        working-directory: /root/cmake
-        run: make install
+        run: cd /root/cmake && make install
 
       - name: ninja latest release set ninja_github_tag
         run: |
