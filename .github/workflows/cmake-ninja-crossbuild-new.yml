@@ -49,6 +49,10 @@ jobs:
       - name: Configure cmake
         run: cd /root/cmake && ./bootstrap --parallel=$(nproc) --no-system-libs --enable-ccache --prefix=../build
 
+      - name: Execute if the job failed
+        if: ${{ failure() }}
+        run: cat /root/cmake/Bootstrap.cmk/cmake_bootstrap.log
+
       - name: Make build cmake
         run: cd /root/cmake && make -j $(nproc)
 
