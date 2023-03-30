@@ -2,6 +2,10 @@ name: cmake ninja crossbuild package release new
 on:
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -12,6 +16,19 @@ jobs:
         os_id: [debian, ubuntu]
         os_codename: [stretch, buster, bullseye, bionic, focal, jammy]
         arch: [amd64, armhf, arm64]
+        include:
+          - arch: amd64
+            CHOST: "x86_64-linux-gnu"
+            docker_arch: amd64
+            docker_platform: linux/amd64
+          - arch: armhf
+            CHOST: "arm-linux-gnueabihf"
+            docker_arch: arm32v7
+            docker_platform: linux/arm/v7
+          - arch: arm64
+            CHOST: "aarch64-linux-gnu"
+            docker_arch: arm64v8
+            docker_platform: linux/arm64/v8
         exclude:
           - os_id: debian
             os_codename: bionic
