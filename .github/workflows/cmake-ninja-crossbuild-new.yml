@@ -61,15 +61,15 @@ jobs:
 
       - name: Configure ninja
         run: |
-          multiarch /root/build/bin/cmake -B build \
+          ../build/bin/cmake -B build \
           -D CMAKE_BUILD_TYPE="release" \
           -D CMAKE_INSTALL_PREFIX="/root/build"
 
       - name: Build ninja
-        run: multiarch /root/build/bin/cmake --build build -j"$(nproc)"
+        run: build/bin/cmake --build build -j"$(nproc)"
 
       - name: Install ninja
-        run: multiarch /root/build/bin/cmake --install build
+        run: build/bin/cmake --install build
 
       - name: Get cmake and ninja version versions - ${{ matrix.arch }}
         run: |
