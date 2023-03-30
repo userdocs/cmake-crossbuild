@@ -33,9 +33,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - run: sudo apt-get update
-      - run: sudo apt-get -y upgrade
-      - run: sudo apt-get install -y build-essential curl pkg-config automake libtool git perl python3 python3-dev unzip ccache
+      - run: apt-get update
+      - run: apt-get -y upgrade
+      - run: apt-get install -y build-essential curl pkg-config automake libtool git perl python3 python3-dev unzip ccache
 
       - name: cmake latest release set cmake_github_tag
         run: |
