@@ -104,7 +104,7 @@ jobs:
         run: docker exec -w /root/ninja multiarch /root/build/bin/cmake --install build
 
       - name: Host - Take ownership of build dir
-        run: sudo chown -R 1001 build
+        run: sudo chown -R $(id -u):$(id -g) build
 
       - name: Host - Get cmake and ninja version versions - ${{ matrix.arch }}
         run: |
