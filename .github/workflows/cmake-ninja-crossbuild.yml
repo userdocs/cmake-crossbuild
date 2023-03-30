@@ -1,4 +1,4 @@
-name: cmake ninja crossbuild package release
+name: cmake ninja crossbuild package release new
 on:
   workflow_dispatch:
 
@@ -14,187 +14,115 @@ jobs:
       matrix:
         name: [cmake]
         os_id: [debian, ubuntu]
-        os_version_id: [stretch, buster, bullseye, bionic, focal, jammy]
+        os_codename: [stretch, buster, bullseye, bionic, focal, jammy]
         arch: [amd64, armhf, arm64]
-        include:
-          - arch: amd64
-            CHOST: "x86_64-linux-gnu"
-            docker_arch: amd64
-            docker_platform: linux/amd64
-          - arch: armhf
-            CHOST: "arm-linux-gnueabihf"
-            docker_arch: arm32v7
-            docker_platform: linux/arm/v7
-          - arch: arm64
-            CHOST: "aarch64-linux-gnu"
-            docker_arch: arm64v8
-            docker_platform: linux/arm64/v8
         exclude:
           - os_id: debian
-            os_version_id: bionic
+            os_codename: bionic
           - os_id: debian
-            os_version_id: focal
+            os_codename: focal
           - os_id: debian
-            os_version_id: jammy
+            os_codename: jammy
           - os_id: ubuntu
-            os_version_id: stretch
+            os_codename: stretch
           - os_id: ubuntu
-            os_version_id: buster
+            os_codename: buster
           - os_id: ubuntu
-            os_version_id: bullseye
+            os_codename: bullseye
 
-    name: ${{ matrix.os_id }}:${{ matrix.os_version_id }} ${{ matrix.name }} ${{ matrix.arch }}
+    name: ${{ matrix.os_id }}:${{ matrix.os_codename }} ${{ matrix.name }} ${{ matrix.arch }}
 
     env:
       opt_dir_name: "opt/local"
+      cxx_standard: "17"
       prerelease: false
+      GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+    outputs:
+      draft_id: ${{ steps.draft_id.outputs.draft_id }}
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Host - Checkout action
+        uses: actions/checkout@v3
 
-      - name: Host - phased updates # https://github.com/actions/runner-images/issues/7192
+      # Fix thsi bug https://github.com/actions/runner-images/issues/7192
+      - name: Host - phased updates
         run: echo 'APT::Get::Always-Include-Phased-Updates "false";' | sudo tee /etc/apt/apt.conf.d/99-phased-updates
+
+      # Bootstrap Ubuntu Lunar repo so that we can install specific app we may need, like binfmt and qemu-user-static
+      - name: Host - set up lunar repo -t lunar
+        run: |
+          printf '%b\n' 'Package: *\nPin: release n=lunar\nPin-Priority: 50' | sudo tee /etc/apt/preferences
+          printf '%b\n' 'deb http://archive.ubuntu.com/ubuntu/ lunar main universe restricted' | sudo tee /etc/apt/sources.list.d/lunar.list
 
       - name: Host - update
         run: sudo apt-get update
 
-      - name: Host - upgrade
-        run: sudo apt-get -y upgrade
+      # - name: Host - upgrade
+      #   run: sudo apt-get -y upgrade
 
-      - name: Host - Install host qemu-static
-        run: sudo apt-get install -y qemu binfmt-support qemu-user-static
+      # No action or other method to bootstrap binfmt. Install from lunar and we get the latest versions and full docker support
+      - name: Host - set up qemu-user-static binfmt-support from lunar
+        run: sudo apt install -t lunar libpipeline1 qemu-user-static binfmt-support
 
-      - name: Host - Docker multiarch bootstrap
-        run: sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-
-      - name: Host - Create Docker template env file
-        run: |
-          echo "DEBIAN_FRONTEND=noninteractive" > env.custom
-          echo "LANG=en_US.UTF-8" >> env.custom
-          echo "LANGUAGE=en_US.UTF-8" >> env.custom
-          echo "LC_ALL=en_US.UTF-8" >> env.custom
-          echo "LC_CTYPE=en_US.UTF-8" >> env.custom
-          echo "PATH=/${{ env.opt_dir_name }}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" >> env.custom
-          echo "LD_LIBRARY_PATH=/${{ env.opt_dir_name }}/lib:/usr/lib/${{ matrix.CHOST }}:/usr/lib:/usr/local/lib" >> env.custom
-          echo "CHOST=${{ matrix.CHOST }}" >> env.custom
-          echo "CC=${{ matrix.CHOST }}-gcc" >> env.custom
-          echo "AR=${{ matrix.CHOST }}-ar" >> env.custom
-          echo "CXX=${{ matrix.CHOST }}-g++" >> env.custom
+      # Why are we doing it like this and not using a container setup? That's how you're supposed to do it, right?
+      # qemu-user-static and binfmt-support are not part of the runner images https://github.com/actions/runner-images/blob/main/images/linux/Ubuntu2204-Readme.md
+      # We would need to modify the runner to install these before the container starts. Which you cannot do as there is no way to bootstrap the host.
+      # So we install them on the host then create/pull a custom docker image that we use to build the multiarch targets.
+      # We are always on the host runner but can use any docker image we need with the access the qemu emulation when required.
+      #
+      # We are using these pre configured toolchain images that allows me to remove 50% of the code/time from this action.
+      #
+      # https://github.com/userdocs/dcb/blob/main/Dockerfile
+      #
+      # The image does not run as root and has password-less sudo. There are two users username:1000 /home/username and github:1001 /home/github
+      # In the action it runs as 1001 /home/github and files should be available to the host. For local use, you might need -u 1000
 
       - name: Host - Create docker multiarch ${{ matrix.arch }} container
-        run: docker run --name multiarch -it -d --env-file env.custom -w /root -v ${{ github.workspace }}:/root ghcr.io/userdocs/dcb:${{ matrix.os_id }}-${{ matrix.os_version_id }}-${{ matrix.arch }}
+        run: docker run --name multiarch -it -d -u 1001 -v ${{ github.workspace }}:/home/github ghcr.io/userdocs/dcb:${{ matrix.os_id }}-${{ matrix.os_codename }}-${{ matrix.arch }}
 
-      - name: Host - Create docker binary test ${{ matrix.arch }} container
-        run: docker run --name bintest -it -d --env-file env.custom -w /root --platform ${{ matrix.docker_platform }} -v ${{ github.workspace }}:/root ${{ matrix.docker_arch }}/${{ matrix.os_id }}:${{ matrix.os_version_id }}
+      ###############################################################################################################################################################################
 
-      - name: Docker target - Set locale data
-        run: |
-          docker exec --env-file env.custom multiarch /bin/bash -c 'echo LC_ALL=en_US.UTF-8 >> /etc/environment'
-          docker exec --env-file env.custom multiarch /bin/bash -c 'echo en_US.UTF-8 UTF-8 >> /etc/locale.gen'
-          docker exec --env-file env.custom multiarch /bin/bash -c 'echo LANG=en_US.UTF-8 > /etc/locale.conf'
-
-      - name: Docker target - fix Ubuntu sources
-        if: |
-          matrix.os_id == 'ubuntu' && matrix.arch != 'amd64'
-        run: |
-          docker exec --env-file env.custom -w /etc/apt/ multiarch  bash -c 'echo "deb [arch=${{ matrix.arch }}] http://ports.ubuntu.com/ubuntu-ports ${{ matrix.os_version_id }} main restricted universe multiverse" > sources.list'
-          docker exec --env-file env.custom -w /etc/apt/ multiarch  bash -c 'echo "deb [arch=${{ matrix.arch }}] http://ports.ubuntu.com/ubuntu-ports ${{ matrix.os_version_id }}-updates main restricted universe multiverse" >> sources.list'
-          docker exec --env-file env.custom -w /etc/apt/ multiarch  bash -c 'echo "deb [arch=${{ matrix.arch }}] http://ports.ubuntu.com/ubuntu-ports ${{ matrix.os_version_id }}-security main restricted universe multiverse" >> sources.list'
-          docker exec --env-file env.custom -w /etc/apt/ multiarch  bash -c 'echo "deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ ${{ matrix.os_version_id }} main restricted universe multiverse" >> sources.list'
-          docker exec --env-file env.custom -w /etc/apt/ multiarch  bash -c 'echo "deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ ${{ matrix.os_version_id }}-updates main restricted universe multiverse" >> sources.list'
-          docker exec --env-file env.custom -w /etc/apt/ multiarch  bash -c 'echo "deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ ${{ matrix.os_version_id }}-backports restricted universe multiverse" >> sources.list'
-          docker exec --env-file env.custom -w /etc/apt/ multiarch  bash -c 'echo "deb [arch=amd64] http://security.ubuntu.com/ubuntu/ ${{ matrix.os_version_id }}-security main restricted universe multiverse" >> sources.list'
-
-      - name: Docker target - dpkg configure arch
-        run: docker exec --env-file env.custom multiarch dpkg --add-architecture ${{ matrix.arch }}
-
-      - name: Docker target - Run apt-get update
-        run: |
-          docker exec --env-file env.custom multiarch apt-get update
-          docker exec --env-file env.custom bintest apt-get update
-
-      - name: Docker target - fix locales
-        run: |
-          docker exec --env-file env.custom multiarch apt-get install -y locales
-          docker exec --env-file env.custom multiarch locale-gen en_US.UTF-8
-          docker exec --env-file env.custom multiarch dpkg-reconfigure locales
-
-      - name: Docker target - Run apt-get upgrade
-        run: |
-          docker exec --env-file env.custom multiarch apt-get upgrade -y
-          docker exec --env-file env.custom bintest apt-get upgrade -y
-
-      - name: Docker target - apt-get install the core build dependencies
-        run: |
-          docker exec --env-file env.custom multiarch apt-get install -y build-essential curl pkg-config automake libtool git perl python3 python3-dev unzip ccache
-          docker exec --env-file env.custom bintest apt-get install -y openssl binutils
-
-      - name: Docker target - apt-get install crossbuild-essential
-        if: matrix.arch != 'amd64'
-        run: docker exec --env-file env.custom multiarch apt-get install -y crossbuild-essential-${{ matrix.arch }}
-
-      - name: Docker target - apt-get install cross target deps
-        run: |
-          docker exec --env-file env.custom multiarch apt-get install -y libssl-dev:${{ matrix.arch }} re2c:${{ matrix.arch }} libstdc++-*-dev:${{ matrix.arch }} 
-          docker exec --env-file env.custom multiarch apt-get install -y libarchive-dev:${{ matrix.arch }} libcurl4-openssl-dev:${{ matrix.arch }} libuv1-dev:${{ matrix.arch }} procps:${{ matrix.arch }} zlib1g-dev:${{ matrix.arch }}
-          docker exec --env-file env.custom multiarch apt-get install -y libexpat1-dev:${{ matrix.arch }} libjsoncpp-dev:${{ matrix.arch }} libncurses5-dev:${{ matrix.arch }} librhash-dev:${{ matrix.arch }}
-
-      - name: Docker target - bionic - apt-get install gcc-8-base g++-8
-        if: matrix.arch == 'amd64' && matrix.os_version_id == 'bionic'
-        run: docker exec --env-file env.custom multiarch apt-get install -y gcc-8 g++-8
-
-      - name: Docker target - bionic - apt-get install gcc-8 g++-8 cross
-        if: matrix.arch != 'amd64' && matrix.os_version_id == 'bionic'
-        run: docker exec --env-file env.custom multiarch apt-get install -y cpp-8-${{ matrix.CHOST }} g++-8-${{ matrix.CHOST }} gcc-8-${{ matrix.CHOST }}
-
-      - name: Docker target - bionic - reconfigure build vars
-        if: matrix.os_version_id == 'bionic'
-        run: |
-          echo "CC=${{ matrix.CHOST }}-gcc-8" >> env.custom
-          echo "AR=${{ matrix.CHOST }}-gcc-ar-8" >> env.custom
-          echo "CXX=${{ matrix.CHOST }}-g++-8" >> env.custom
-
-      - name: Docker target - cmake latest release set cmake_github_tag
+      - name: Host - cmake latest release set cmake_github_tag
         run: |
           cmake_github_tag="$(git ls-remote -q -t --refs https://github.com/Kitware/CMake.git | awk '{sub("refs/tags/", "");sub("(.*)-rc(.*)", ""); print $2 }' | awk '!/^$/' | sort -rV | head -n 1)"
           echo "cmake_github_tag=${cmake_github_tag}" >> $GITHUB_ENV
 
-      - name: Docker target - Git clone cmake
-        run: docker exec --env-file env.custom multiarch git clone --single-branch --branch ${{ env.cmake_github_tag }} --shallow-submodules --recurse-submodules --depth 1 https://github.com/Kitware/CMake.git /root/cmake
+      - name: Host - Git clone cmake
+        run: git clone --single-branch --branch ${{ env.cmake_github_tag }} --shallow-submodules --recurse-submodules --depth 1 https://github.com/Kitware/CMake.git cmake
 
-      - name: Docker target - Configure cmake
-        run: docker exec --env-file env.custom -w /root/cmake multiarch ./configure --parallel=$(nproc) --no-system-libs --enable-ccache --prefix=/root/build/${{ env.opt_dir_name}}
+      - name: Docker - Configure cmake
+        run: docker exec -w /home/github/cmake multiarch ./configure --parallel=$(nproc) --no-system-libs --enable-ccache --prefix=/home/github/build/${{ env.opt_dir_name}}
 
-      - name: Docker target - Make build cmake
-        run: docker exec --env-file env.custom -w /root/cmake multiarch make -j$(nproc)
+      - name: Docker - Make build cmake
+        run: docker exec -w /home/github/cmake multiarch make -j $(nproc)
 
-      - name: Docker target - Make install cmake
-        run: docker exec --env-file env.custom -w /root/cmake multiarch make install
+      - name: Docker - Make install cmake
+        run: docker exec -w /home/github/cmake multiarch make install
 
-      - name: Docker target - ninja latest release set ninja_github_tag
+      - name: Host - ninja latest release set ninja_github_tag
         run: |
           ninja_github_tag="$(git ls-remote -q -t --refs https://github.com/ninja-build/ninja.git | awk '/v/{sub("refs/tags/", ""); print $2 }' | awk '!/^$/' | sort -rV | head -n 1)"
           echo "ninja_github_tag=${ninja_github_tag}" >> $GITHUB_ENV
 
-      - name: Docker target - Git clone ninja
-        run: docker exec --env-file env.custom multiarch git clone --single-branch --branch ${{ env.ninja_github_tag }} --shallow-submodules --recurse-submodules --depth 1 https://github.com/ninja-build/ninja.git /root/ninja
+      - name: Host - Git clone ninja
+        run: git clone --single-branch --branch ${{ env.ninja_github_tag }} --shallow-submodules --recurse-submodules --depth 1 https://github.com/ninja-build/ninja.git ninja
 
-      - name: Docker target - Configure ninja
+      - name: Docker - Configure ninja
         run: |
-          docker exec --env-file env.custom -w /root/ninja multiarch /root/build/${{ env.opt_dir_name }}/bin/cmake -B build \
+          docker exec -w /home/github/ninja multiarch /home/github/build/${{ env.opt_dir_name }}/bin/cmake -B build \
           -D CMAKE_BUILD_TYPE="release" \
-          -D CMAKE_INSTALL_PREFIX="/root/build/${{ env.opt_dir_name }}"
+          -D CMAKE_INSTALL_PREFIX="/home/github/build/${{ env.opt_dir_name }}"
 
-      - name: Docker target - Build ninja
-        run: docker exec --env-file env.custom -w /root/ninja multiarch /root/build/${{ env.opt_dir_name }}/bin/cmake --build build -j"$(nproc)"
+      - name: Docker - Build ninja
+        run: docker exec -w /home/github/ninja multiarch /home/github/build/${{ env.opt_dir_name }}/bin/cmake --build build -j"$(nproc)"
 
-      - name: Docker target - Install ninja
-        run: docker exec --env-file env.custom -w /root/ninja multiarch /root/build/${{ env.opt_dir_name }}/bin/cmake --install build
+      - name: Docker - Install ninja
+        run: docker exec -w /home/github/ninja multiarch /home/github/build/${{ env.opt_dir_name }}/bin/cmake --install build
 
-      - name: Docker target - Get cmake and ninja version versions - ${{ matrix.arch }}
+      - name: Docker - Get cmake and ninja version versions - ${{ matrix.arch }}
         run: |
-          docker exec --env-file env.custom -w /root bintest bash -c '/root/build/${{ env.opt_dir_name }}/bin/cmake --version 2> /dev/null | awk "NR==1{print \$3}" > cmake.version'
-          docker exec --env-file env.custom -w /root bintest bash -c '/root/build/${{ env.opt_dir_name }}/bin/ninja --version 2> /dev/null > ninja.version'
+          docker exec -w /home/github multiarch bash -c '/home/github/build/${{ env.opt_dir_name }}/bin/cmake --version 2> /dev/null | awk "NR==1{print \$3}" > cmake.version'
+          docker exec -w /home/github multiarch bash -c '/home/github/build/${{ env.opt_dir_name }}/bin/ninja --version 2> /dev/null > ninja.version'
 
       - name: Host - Set cmake version to variable
         run: |
@@ -219,19 +147,37 @@ jobs:
           version: "${{ env.cmake_version }}+${{ env.ninja_version }}"
           depends: "${{ env.cmake-deb-deps }}"
           arch: "${{ matrix.arch }}"
-          desc: "${{ matrix.name }}-${{ matrix.arch }} for ${{ matrix.os_id }}-${{ matrix.os_version_id }}"
+          desc: "${{ matrix.name }}-${{ matrix.arch }} for ${{ matrix.os_id }}-${{ matrix.os_codename }}"
 
       - name: Host - Remove version from release name and use hyphens
-        run: mv -f "${{ matrix.name }}_${{ env.cmake_version }}+${{ env.ninja_version }}_${{ matrix.arch }}.deb" "${{ matrix.os_id }}-${{ matrix.os_version_id }}-${{ matrix.name }}-${{ matrix.arch }}.deb"
+        run: mv -f "${{ matrix.name }}_${{ env.cmake_version }}+${{ env.ninja_version }}_${{ matrix.arch }}.deb" "${{ matrix.os_id }}-${{ matrix.os_codename }}-${{ matrix.name }}-${{ matrix.arch }}.deb"
 
       - name: Host - "Create release - tag - assets"
         uses: ncipollo/release-action@v1
         with:
           prerelease: ${{ env.prerelease }}
-          artifacts: "${{ matrix.os_id }}-${{ matrix.os_version_id }}-${{ matrix.name }}-${{ matrix.arch }}.deb"
+          artifacts: "${{ matrix.os_id }}-${{ matrix.os_codename }}-${{ matrix.name }}-${{ matrix.arch }}.deb"
           replacesArtifacts: true
           tag: "${{ env.cmake_version }}_${{ env.ninja_version }}"
           name: "cmake ${{ env.cmake_version }} ninja ${{ env.ninja_version }}"
           body: "cmake and ninja built from github latest release on amd64 arm64 armhf for Debian Stretch Buster Bullseye and Ubuntu Bionic Focal Jammy"
           allowUpdates: true
           token: "${{ secrets.GITHUB_TOKEN }}"
+
+      - name: process
+        id: draft_id
+        run: echo "draft_id=${{ steps.release_id.outputs.id }}" >> $GITHUB_OUTPUT
+
+  publish_draft:
+    name: Publish Drafts
+    runs-on: ubuntu-latest
+    needs: [build]
+    env:
+      GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+    steps:
+      - name: Update draft to release
+        run: |
+          drafts=("${{ needs.build.outputs.draft_id }}")
+          for d in "${drafts[@]}"; do
+              gh api --silent /repos/${{ github.repository }}/releases/${d} -F 'draft=false'
+          done
