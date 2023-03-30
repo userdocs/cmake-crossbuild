@@ -35,8 +35,8 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      # - name: Host - phased updates # https://github.com/actions/runner-images/issues/7192
-      #   run: echo 'APT::Get::Always-Include-Phased-Updates "false";' | sudo tee /etc/apt/apt.conf.d/99-phased-updates
+      - name: Host - phased updates # https://github.com/actions/runner-images/issues/7192
+        run: echo 'APT::Get::Always-Include-Phased-Updates "false";' | sudo tee /etc/apt/apt.conf.d/99-phased-updates
 
       - name: Set up lunar repo -t lunar
         run: |
@@ -53,7 +53,7 @@ jobs:
       #   uses: docker/setup-qemu-action@v2
 
       - name: Set up qemu-user-static binfmt-support from lunar
-        run: apt install -t lunar libpipeline1 qemu-user-static binfmt-support
+        run: sudo apt install -t lunar libpipeline1 qemu-user-static binfmt-support
 
       - name: Host - Create docker multiarch ${{ matrix.arch }} container
         run: docker run --name multiarch -it -d -w /root -v ${{ github.workspace }}:/root ghcr.io/userdocs/dcb:${{ matrix.os_id }}-${{ matrix.os_codename }}-${{ matrix.arch }}
@@ -68,10 +68,6 @@ jobs:
 
       - name: Configure cmake
         run: docker exec -w /root/cmake multiarch ./bootstrap --parallel=$(nproc) --no-system-libs --enable-ccache --prefix=/root/build
-
-      - name: Execute if the job failed
-        if: ${{ failure() }}
-        run: cat /root/cmake/Bootstrap.cmk/cmake_bootstrap.log
 
       - name: Make build cmake
         run: docker exec -w /root/cmake multiarch && make -j $(nproc)
