@@ -48,7 +48,7 @@ jobs:
         uses: docker/setup-qemu-action@v2
 
       - name: Host - Create docker multiarch ${{ matrix.arch }} container
-        run: docker run --name multiarch -it -d -w /root -v ${{ github.workspace }}:/root ghcr.io/userdocs/dcb:${{ matrix.os_id }}-${{ matrix.os_version_id }}-${{ matrix.arch }}
+        run: docker run --name multiarch -it -d -w /root -v ${{ github.workspace }}:/root ghcr.io/userdocs/dcb:${{ matrix.os_id }}-${{ matrix.os_codename }}-${{ matrix.arch }}
 
       - name: cmake latest release set cmake_github_tag
         run: |
