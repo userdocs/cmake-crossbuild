@@ -33,12 +33,13 @@ jobs:
     name: ${{ matrix.os_id }}:${{ matrix.os_codename }} ${{ matrix.name }} ${{ matrix.arch }}
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Host - Checkout action
+        uses: actions/checkout@v3
 
       - name: Host - phased updates # https://github.com/actions/runner-images/issues/7192
         run: echo 'APT::Get::Always-Include-Phased-Updates "false";' | sudo tee /etc/apt/apt.conf.d/99-phased-updates
 
-      - name: Set up lunar repo -t lunar
+      - name: Host - set up lunar repo -t lunar
         run: |
           printf '%b\n' 'Package: *\nPin: release n=lunar\nPin-Priority: 50' | sudo tee /etc/apt/preferences
           printf '%b\n' 'deb http://archive.ubuntu.com/ubuntu/ lunar main universe restricted' | sudo tee /etc/apt/sources.list.d/lunar.list
@@ -49,7 +50,7 @@ jobs:
       - name: Host - upgrade
         run: sudo apt-get -y upgrade
 
-      - name: Set up qemu-user-static binfmt-support from lunar
+      - name: Host - set up qemu-user-static binfmt-support from lunar
         run: sudo apt install -t lunar libpipeline1 qemu-user-static binfmt-support
 
       ### Why are we doing it like this and not using a container setup? That's how you're supposed to do it right?
@@ -65,47 +66,47 @@ jobs:
       - name: Host - Create docker multiarch ${{ matrix.arch }} container
         run: docker run --name multiarch -it -d -w /root -v ${{ github.workspace }}:/root ghcr.io/userdocs/dcb:${{ matrix.os_id }}-${{ matrix.os_codename }}-${{ matrix.arch }}
 
-      - name: cmake latest release set cmake_github_tag
+      - name: Host - cmake latest release set cmake_github_tag
         run: |
           cmake_github_tag="$(git ls-remote -q -t --refs https://github.com/Kitware/CMake.git | awk '{sub("refs/tags/", "");sub("(.*)-rc(.*)", ""); print $2 }' | awk '!/^$/' | sort -rV | head -n 1)"
           echo "cmake_github_tag=${cmake_github_tag}" >> $GITHUB_ENV
 
-      - name: Git clone cmake
+      - name: Host - Git clone cmake
         run: git clone --single-branch --branch ${{ env.cmake_github_tag }} --shallow-submodules --recurse-submodules --depth 1 https://github.com/Kitware/CMake.git cmake
 
-      - name: Configure cmake
+      - name: Docker - Configure cmake
         run: docker exec -w /root/cmake multiarch ./bootstrap --parallel=$(nproc) --no-system-libs --enable-ccache --prefix=/root/build
 
-      - name: Make build cmake
+      - name: Docker - Make build cmake
         run: docker exec -w /root/cmake multiarch make -j $(nproc)
 
-      - name: Make install cmake
+      - name: Docker - Make install cmake
         run: docker exec -w /root/cmake multiarch make install
 
-      - name: ninja latest release set ninja_github_tag
+      - name: Host - ninja latest release set ninja_github_tag
         run: |
           ninja_github_tag="$(git ls-remote -q -t --refs https://github.com/ninja-build/ninja.git | awk '/v/{sub("refs/tags/", ""); print $2 }' | awk '!/^$/' | sort -rV | head -n 1)"
           echo "ninja_github_tag=${ninja_github_tag}" >> $GITHUB_ENV
 
-      - name: Git clone ninja
+      - name: Host - Git clone ninja
         run: git clone --single-branch --branch ${{ env.ninja_github_tag }} --shallow-submodules --recurse-submodules --depth 1 https://github.com/ninja-build/ninja.git ninja
 
-      - name: Configure ninja
+      - name: Docker - Configure ninja
         run: |
           docker exec -w /root/ninja multiarch /root/build/bin/cmake -B build \
           -D CMAKE_BUILD_TYPE="release" \
           -D CMAKE_INSTALL_PREFIX="/root/build"
 
-      - name: Build ninja
+      - name: Docker - Build ninja
         run: docker exec -w /root/ninja multiarch /root/build/bin/cmake --build build -j"$(nproc)"
 
-      - name: Install ninja
+      - name: Docker - Install ninja
         run: docker exec -w /root/ninja multiarch /root/build/bin/cmake --install build
 
-      - name: Chown
+      - name: Host - Take ownership of build dir
         run: sudo chown -R $(id) build
 
-      - name: Get cmake and ninja version versions - ${{ matrix.arch }}
+      - name: Host - Get cmake and ninja version versions - ${{ matrix.arch }}
         run: |
           build/bin/cmake --version 2> /dev/null | awk "NR==1{print \$3}" > cmake.version
           build/bin/ninja --version 2> /dev/null > ninja.version
