@@ -38,14 +38,22 @@ jobs:
       # - name: Host - phased updates # https://github.com/actions/runner-images/issues/7192
       #   run: echo 'APT::Get::Always-Include-Phased-Updates "false";' | sudo tee /etc/apt/apt.conf.d/99-phased-updates
 
-      # - name: Host - update
-      #   run: sudo apt-get update
+      - name: Set up lunar repo -t lunar
+        run: |
+          printf '%b\n' 'Package: *\nPin: release n=lunar\nPin-Priority: 50' | sudo tee /etc/apt/preferences
+          printf '%b\n' 'deb http://archive.ubuntu.com/ubuntu/ lunar main universe restricted' | sudo tee /etc/apt/sources.list.d/lunar.list
+
+      - name: Host - update
+        run: sudo apt-get update
 
       # - name: Host - upgrade
       #   run: sudo apt-get -y upgrade
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
+      # - name: Set up QEMU
+      #   uses: docker/setup-qemu-action@v2
+
+      - name: Set up qemu-user-static binfmt-support from lunar
+        run: apt install -t lunar libpipeline1 qemu-user-static binfmt-support
 
       - name: Host - Create docker multiarch ${{ matrix.arch }} container
         run: docker run --name multiarch -it -d -w /root -v ${{ github.workspace }}:/root ghcr.io/userdocs/dcb:${{ matrix.os_id }}-${{ matrix.os_codename }}-${{ matrix.arch }}
