@@ -61,6 +61,12 @@ jobs:
       - name: Host - upgrade
         run: sudo apt-get -y upgrade
 
+      - name: Host - Install host qemu-static
+        run: sudo apt-get install -y qemu binfmt-support qemu-user-static
+
+      - name: Host - Docker multiarch bootstrap
+        run: sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+
       - name: Host - Create Docker template env file
         run: |
           echo "DEBIAN_FRONTEND=noninteractive" > env.custom
@@ -81,6 +87,12 @@ jobs:
       - name: Host - Create docker binary test ${{ matrix.arch }} container
         run: docker run --name bintest -it -d --env-file env.custom -w /root --platform ${{ matrix.docker_platform }} -v ${{ github.workspace }}:/root ${{ matrix.docker_arch }}/${{ matrix.os_id }}:${{ matrix.os_version_id }}
 
+      - name: Docker target - Set locale data
+        run: |
+          docker exec --env-file env.custom multiarch /bin/bash -c 'echo LC_ALL=en_US.UTF-8 >> /etc/environment'
+          docker exec --env-file env.custom multiarch /bin/bash -c 'echo en_US.UTF-8 UTF-8 >> /etc/locale.gen'
+          docker exec --env-file env.custom multiarch /bin/bash -c 'echo LANG=en_US.UTF-8 > /etc/locale.conf'
+
       - name: Docker target - fix Ubuntu sources
         if: |
           matrix.os_id == 'ubuntu' && matrix.arch != 'amd64'
@@ -100,6 +112,12 @@ jobs:
         run: |
           docker exec --env-file env.custom multiarch apt-get update
           docker exec --env-file env.custom bintest apt-get update
+
+      - name: Docker target - fix locales
+        run: |
+          docker exec --env-file env.custom multiarch apt-get install -y locales
+          docker exec --env-file env.custom multiarch locale-gen en_US.UTF-8
+          docker exec --env-file env.custom multiarch dpkg-reconfigure locales
 
       - name: Docker target - Run apt-get upgrade
         run: |
