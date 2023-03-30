@@ -46,14 +46,21 @@ jobs:
       - name: Host - update
         run: sudo apt-get update
 
-      # - name: Host - upgrade
-      #   run: sudo apt-get -y upgrade
-
-      # - name: Set up QEMU
-      #   uses: docker/setup-qemu-action@v2
+      - name: Host - upgrade
+        run: sudo apt-get -y upgrade
 
       - name: Set up qemu-user-static binfmt-support from lunar
         run: sudo apt install -t lunar libpipeline1 qemu-user-static binfmt-support
+
+      ### Why are we doing it like this and not using a container setup? That's how you're supposed to do it right?
+      ### qemu-user-static and binfmt-support are not part of the runner imager https://github.com/actions/runner-images/blob/main/images/linux/Ubuntu2204-Readme.md
+      ### We would need to modify the runner to install these before the container starts. Which you cannot do as there is no way to bootstrap the host.
+      ### So we install them on the host then create/pull a custom docker image that we use to build teh multiarch targets.
+      ### We are always on the host runner but can use any docker image we need with the access the qemu emulation required.
+      ###
+      ### We are using these pre configured toolchain images that allows me to remove 50% of the code/time from this action.
+      ###
+      ### https://github.com/userdocs/dcb/blob/main/Dockerfile
 
       - name: Host - Create docker multiarch ${{ matrix.arch }} container
         run: docker run --name multiarch -it -d -w /root -v ${{ github.workspace }}:/root ghcr.io/userdocs/dcb:${{ matrix.os_id }}-${{ matrix.os_codename }}-${{ matrix.arch }}
@@ -70,10 +77,10 @@ jobs:
         run: docker exec -w /root/cmake multiarch ./bootstrap --parallel=$(nproc) --no-system-libs --enable-ccache --prefix=/root/build
 
       - name: Make build cmake
-        run: docker exec -w /root/cmake multiarch && make -j $(nproc)
+        run: docker exec -w /root/cmake multiarch make -j $(nproc)
 
       - name: Make install cmake
-        run: docker exec -w /root/cmake multiarch && make install
+        run: docker exec -w /root/cmake multiarch make install
 
       - name: ninja latest release set ninja_github_tag
         run: |
