@@ -199,3 +199,20 @@ jobs:
           name: "cmake ${{ env.cmake_version}} ninja ${{ env.ninja_version}}"
           body: "cmake and ninja built from github latest release on amd64 arm64 armhf for Debian Stretch Buster Bullseye and Ubuntu Bionic Focal Jammy"
           allowUpdates: true
+
+  rerun:
+    name: rerun
+    needs: build
+    permissions: 
+      actions: write
+    runs-on: ubuntu-latest
+    if: ${{ failure() }}
+    env:
+      GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+    steps:
+      - name: trigger workflow - rerun
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: "rerun.yml"
+          repo: "userdocs/cmake-crossbuild"
+          inputs: '{ "run_id": "${{ github.run_id }}", "attempts": "${{ github.run_attempt }}" }'
