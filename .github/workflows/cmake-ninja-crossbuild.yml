@@ -172,8 +172,8 @@ jobs:
     if: always() && contains(needs.*.result, 'success') && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
     env:
       GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-      cmake_version: ${{needs.build.outputs.cmake_version}}
-      ninja_version: ${{needs.build.outputs.ninja_version}}
+      cmake_version: ${{ needs.build.outputs.cmake_version }}
+      ninja_version: ${{ needs.build.outputs.ninja_version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -189,6 +189,7 @@ jobs:
           done
 
       - name: Host - "Create release - tag - assets"
+        id: release_id
         uses: ncipollo/release-action@v1
         with:
           prerelease: false
@@ -198,4 +199,3 @@ jobs:
           name: "cmake ${{ env.cmake_version}} ninja ${{ env.ninja_version}}"
           body: "cmake and ninja built from github latest release on amd64 arm64 armhf for Debian Stretch Buster Bullseye and Ubuntu Bionic Focal Jammy"
           allowUpdates: true
-          token: "${{ secrets.GITHUB_TOKEN }}"
