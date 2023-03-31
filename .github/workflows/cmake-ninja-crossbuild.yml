@@ -6,9 +6,15 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      cmake_version: ${{ steps.version_info.outputs.cmake_version }}
+      ninja_version: ${{ steps.version_info.outputs.ninja_version }}
     strategy:
       fail-fast: false
       matrix:
@@ -35,10 +41,7 @@ jobs:
     env:
       opt_dir_name: "opt/local"
       cxx_standard: "17"
-      prerelease: false
       GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-    outputs:
-      draft_id: ${{ steps.draft_id.outputs.draft_id }}
 
     steps:
       - name: Host - Checkout action
@@ -79,8 +82,6 @@ jobs:
 
       - name: Host - Create docker multiarch ${{ matrix.arch }} container
         run: docker run --name multiarch -it -d -u 1001 -v ${{ github.workspace }}:/home/github ghcr.io/userdocs/dcb:${{ matrix.os_id }}-${{ matrix.os_codename }}-${{ matrix.arch }}
-
-      ###############################################################################################################################################################################
 
       - name: Host - cmake latest release set cmake_github_tag
         run: |
@@ -152,32 +153,49 @@ jobs:
       - name: Host - Remove version from release name and use hyphens
         run: mv -f "${{ matrix.name }}_${{ env.cmake_version }}+${{ env.ninja_version }}_${{ matrix.arch }}.deb" "${{ matrix.os_id }}-${{ matrix.os_codename }}-${{ matrix.name }}-${{ matrix.arch }}.deb"
 
+      - name: Info
+        id: version_info
+        run: |          
+          echo "cmake_version=${{ env.cmake_version }}" >> $GITHUB_OUTPUT
+          echo "ninja_version=${{ env.ninja_version }}" >> $GITHUB_OUTPUT
+
+      - name: Host - upload deb packages
+        uses: actions/upload-artifact@v3
+        with:
+          name: "${{ matrix.os_id }}-${{ matrix.os_codename }}-${{ matrix.name }}-${{ matrix.arch }}-deb"
+          path: "${{ matrix.os_id }}-${{ matrix.os_codename }}-${{ matrix.name }}-${{ matrix.arch }}.deb"
+
+  release:
+    name: Upload artifacts to release
+    runs-on: ubuntu-latest
+    needs: build
+    if: always() && contains(needs.*.result, 'success') && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
+    env:
+      GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+      cmake_version: ${{needs.build.outputs.cmake_version}}
+      ninja_version: ${{needs.build.outputs.ninja_version}}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Host - Download artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Host - artifacts organise for release
+        run: |
+          mkdir -p "releases"
+          for files in *-deb; do
+              cp -rf ${files}/* "releases/"
+          done
+
       - name: Host - "Create release - tag - assets"
         uses: ncipollo/release-action@v1
         with:
-          prerelease: ${{ env.prerelease }}
-          artifacts: "${{ matrix.os_id }}-${{ matrix.os_codename }}-${{ matrix.name }}-${{ matrix.arch }}.deb"
+          prerelease: false
+          artifacts: releases/*.deb
           replacesArtifacts: true
-          tag: "${{ env.cmake_version }}_${{ env.ninja_version }}"
-          name: "cmake ${{ env.cmake_version }} ninja ${{ env.ninja_version }}"
+          tag: "${{ env.cmake_version}}_${{ env.ninja_version}}"
+          name: "cmake ${{ env.cmake_version}} ninja ${{ env.ninja_version}}"
           body: "cmake and ninja built from github latest release on amd64 arm64 armhf for Debian Stretch Buster Bullseye and Ubuntu Bionic Focal Jammy"
           allowUpdates: true
           token: "${{ secrets.GITHUB_TOKEN }}"
-
-      - name: process
-        id: draft_id
-        run: echo "draft_id=${{ steps.release_id.outputs.id }}" >> $GITHUB_OUTPUT
-
-  publish_draft:
-    name: Publish Drafts
-    runs-on: ubuntu-latest
-    needs: [build]
-    env:
-      GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-    steps:
-      - name: Update draft to release
-        run: |
-          drafts=("${{ needs.build.outputs.draft_id }}")
-          for d in "${drafts[@]}"; do
-              gh api --silent /repos/${{ github.repository }}/releases/${d} -F 'draft=false'
-          done
