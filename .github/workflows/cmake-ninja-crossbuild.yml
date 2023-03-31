@@ -202,7 +202,7 @@ jobs:
 
   rerun:
     name: rerun
-    needs: build
+    needs: release
     permissions: 
       actions: write
     runs-on: ubuntu-latest
