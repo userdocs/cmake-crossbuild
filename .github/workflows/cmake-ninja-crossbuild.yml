@@ -1,4 +1,4 @@
-name: cmake ninja crossbuild package release new
+name: cmake ninja crossbuild package release
 on:
   workflow_dispatch:
 
@@ -44,7 +44,7 @@ jobs:
       - name: Host - Checkout action
         uses: actions/checkout@v3
 
-      # Fix thsi bug https://github.com/actions/runner-images/issues/7192
+      # Fix this bug https://github.com/actions/runner-images/issues/7192
       - name: Host - phased updates
         run: echo 'APT::Get::Always-Include-Phased-Updates "false";' | sudo tee /etc/apt/apt.conf.d/99-phased-updates
 
