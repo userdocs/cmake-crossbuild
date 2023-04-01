@@ -1,4 +1,5 @@
 name: cmake ninja crossbuild package release
+
 on:
   workflow_dispatch:
     inputs:
