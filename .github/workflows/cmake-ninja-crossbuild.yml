@@ -163,7 +163,7 @@ jobs:
 
       - name: Info
         id: version_info
-        run: |          
+        run: |
           echo "cmake_version=${{ env.cmake_version }}" >> $GITHUB_OUTPUT
           echo "ninja_version=${{ env.ninja_version }}" >> $GITHUB_OUTPUT
 
