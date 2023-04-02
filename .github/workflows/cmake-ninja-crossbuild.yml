@@ -95,10 +95,11 @@ jobs:
       - name: Host - Create docker multiarch ${{ matrix.arch }} container
         run: docker run --name multiarch -it -d -u 1001 -v ${{ github.workspace }}:/home/github ghcr.io/userdocs/dcb:${{ matrix.os_id }}-${{ matrix.os_codename }}-${{ matrix.arch }}
 
-      - name: Host - cmake latest release set cmake_github_tag
-        run: |
-          cmake_github_tag="$(git ls-remote -q -t --refs https://github.com/Kitware/CMake.git | awk '{sub("refs/tags/", "");sub("(.*)-rc(.*)", ""); print $2 }' | awk '!/^$/' | sort -rV | head -n 1)"
-          echo "cmake_github_tag=${cmake_github_tag}" >> $GITHUB_ENV
+      - name: Host - cmake set cmake_github_tag
+        run: printf '%s' "cmake_github_tag=$(git ls-remote -q -t --refs https://github.com/Kitware/CMake.git | awk '{sub("refs/tags/", "");sub("(.*)-rc(.*)", ""); print $2 }' | awk '!/^$/' | sort -rV | head -n 1)" >> $GITHUB_ENV
+
+      - name: Host - ninja set ninja_github_tag
+        run: printf '%s' "ninja_github_tag=$(git ls-remote -q -t --refs https://github.com/ninja-build/ninja.git | awk '/v/{sub("refs/tags/", ""); print $2 }' | awk '!/^$/' | sort -rV | head -n 1)" >> $GITHUB_ENV
 
       - name: Host - Git clone cmake
         run: git clone --single-branch --branch ${{ env.cmake_github_tag }} --shallow-submodules --recurse-submodules --depth 1 https://github.com/Kitware/CMake.git cmake
@@ -112,21 +113,14 @@ jobs:
       - name: Docker - Make install cmake
         run: docker exec -w /home/github/cmake multiarch make install
 
-      - name: Host - ninja latest release set ninja_github_tag
-        run: |
-          ninja_github_tag="$(git ls-remote -q -t --refs https://github.com/ninja-build/ninja.git | awk '/v/{sub("refs/tags/", ""); print $2 }' | awk '!/^$/' | sort -rV | head -n 1)"
-          echo "ninja_github_tag=${ninja_github_tag}" >> $GITHUB_ENV
-
       - name: Host - Git clone ninja
         run: git clone --single-branch --branch ${{ env.ninja_github_tag }} --shallow-submodules --recurse-submodules --depth 1 https://github.com/ninja-build/ninja.git ninja
 
       - name: Docker - Configure ninja
-        run: |
-          docker exec -w /home/github/ninja multiarch /home/github/build/${{ env.opt_dir_name }}/bin/cmake -B build \
-          -D CMAKE_BUILD_TYPE="release" \
-          -D CMAKE_CXX_STANDARD="${{ env.cxx_standard }}" \
-          -D CMAKE_CXX_STANDARD_REQUIRED=ON \
-          -D CMAKE_CXX_EXTENSIONS=OFF \
+        run: >
+          docker exec -w /home/github/ninja multiarch /home/github/build/${{ env.opt_dir_name }}/bin/cmake -B build
+          -D CMAKE_BUILD_TYPE="release"
+          -D CMAKE_CXX_STANDARD="${{ env.cxx_standard }}"
           -D CMAKE_INSTALL_PREFIX="/home/github/build/${{ env.opt_dir_name }}"
 
       - name: Docker - Build ninja
@@ -135,20 +129,22 @@ jobs:
       - name: Docker - Install ninja
         run: docker exec -w /home/github/ninja multiarch /home/github/build/${{ env.opt_dir_name }}/bin/cmake --install build
 
-      - name: Docker - Get cmake and ninja version versions - ${{ matrix.arch }}
+      - name: Docker - Test cmake and ninja binaries and set versions
         run: |
           docker exec -w /home/github multiarch bash -c '/home/github/build/${{ env.opt_dir_name }}/bin/cmake --version 2> /dev/null | awk "NR==1{print \$3}" > cmake.version'
           docker exec -w /home/github multiarch bash -c '/home/github/build/${{ env.opt_dir_name }}/bin/ninja --version 2> /dev/null > ninja.version'
 
-      - name: Host - Set cmake version to variable
+      - name: Host - Set cmake and ninja versions to variable
+        id: version_info
         run: |
           cmake_version="$(<cmake.version)"
-          echo "cmake_version=${cmake_version%%-*}" >> $GITHUB_ENV
+          printf '%s' "cmake_version=${cmake_version%%-*}" >> $GITHUB_ENV
 
-      - name: Host - Set ninja version to variable
-        run: |
           ninja_version="$(<ninja.version)"
-          echo "ninja_version=${ninja_version%\.git}" >> $GITHUB_ENV
+          printf '%s' "ninja_version=${ninja_version%\.git}" >> $GITHUB_ENV
+
+          printf '%s' "cmake_version=${{ env.cmake_version }}" >> $GITHUB_OUTPUT
+          printf '%s' "ninja_version=${{ env.ninja_version }}" >> $GITHUB_OUTPUT
 
       - name: Host - Set deb dependencies for cmake and ninja
         run: echo "cmake-deb-deps=openssl" >> $GITHUB_ENV
@@ -168,13 +164,7 @@ jobs:
       - name: Host - Remove version from release name and use hyphens
         run: mv -f "${{ matrix.name }}_${{ env.cmake_version }}+${{ env.ninja_version }}_${{ matrix.arch }}.deb" "${{ matrix.os_id }}-${{ matrix.os_codename }}-${{ matrix.name }}-${{ matrix.arch }}.deb"
 
-      - name: Info
-        id: version_info
-        run: |
-          echo "cmake_version=${{ env.cmake_version }}" >> $GITHUB_OUTPUT
-          echo "ninja_version=${{ env.ninja_version }}" >> $GITHUB_OUTPUT
-
-      - name: Host - upload deb packages
+      - name: Host - upload artifacts
         uses: actions/upload-artifact@v3
         with:
           name: "${{ matrix.os_id }}-${{ matrix.os_codename }}-${{ matrix.name }}-${{ matrix.arch }}-deb"
@@ -209,8 +199,8 @@ jobs:
           prerelease: false
           artifacts: releases/*.deb
           replacesArtifacts: true
-          tag: "${{ env.cmake_version}}_${{ env.ninja_version}}"
-          name: "cmake ${{ env.cmake_version}} ninja ${{ env.ninja_version}}"
+          tag: "${{ env.cmake_version }}_${{ env.ninja_version }}"
+          name: "cmake ${{ env.cmake_version }} ninja ${{ env.ninja_version }}"
           body: "cmake and ninja built from github latest release on amd64 arm64 armhf for Debian Stretch Buster Bullseye and Ubuntu Bionic Focal Jammy"
           allowUpdates: true
 
@@ -227,4 +217,3 @@ jobs:
       - uses: actions/checkout@v3
       - name: Trigger rerun workflow on job failures
         run: gh workflow run rerun.yml -f run_id=${{ github.run_id }} -f attempts=${{ github.run_attempt }} -f retries=${{ inputs.retries }}
-
