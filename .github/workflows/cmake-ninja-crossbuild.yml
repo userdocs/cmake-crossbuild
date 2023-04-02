@@ -67,7 +67,7 @@ jobs:
       - name: Host - set up lunar repo -t lunar
         run: |
           printf '%b\n' 'Package: *\nPin: release n=lunar\nPin-Priority: 50' | sudo tee /etc/apt/preferences
-          printf '%b\n' 'deb http://archive.ubuntu.com/ubuntu/ lunar main universe restricted' | sudo tee /etc/apt/sources.list.d/lunar.list
+          printf '%s\n' 'deb http://archive.ubuntu.com/ubuntu/ lunar main universe restricted' | sudo tee /etc/apt/sources.list.d/lunar.list
 
       - name: Host - update
         run: sudo apt-get update
@@ -137,14 +137,14 @@ jobs:
       - name: Host - Set cmake and ninja versions to variable
         id: version_info
         run: |
-          cmake_version="$(<cmake.version)"
-          printf '%s\n' "cmake_version=${cmake_version%%-*}" >> $GITHUB_ENV
+          cmake_version="$(<cmake.version)" cmake_version="${cmake_version%%-*}"
+          printf '%s\n' "cmake_version=${cmake_version}" >> $GITHUB_ENV
 
-          ninja_version="$(<ninja.version)"
-          printf '%s\n' "ninja_version=${ninja_version%\.git}" >> $GITHUB_ENV
+          ninja_version="$(<ninja.version)" ninja_version="${ninja_version%\.git}"
+          printf '%s\n' "ninja_version=${ninja_version}" >> $GITHUB_ENV
 
-          printf '%s\n' "cmake_version=${{ env.cmake_version }}" >> $GITHUB_OUTPUT
-          printf '%s\n' "ninja_version=${{ env.ninja_version }}" >> $GITHUB_OUTPUT
+          printf '%s\n' "cmake_version=${cmake_version}" >> $GITHUB_OUTPUT
+          printf '%s\n' "ninja_version=${ninja_version}" >> $GITHUB_OUTPUT
 
       - name: Host - Set deb dependencies for cmake and ninja
         run: printf '%s\n' "cmake-deb-deps=openssl" >> $GITHUB_ENV
