@@ -72,8 +72,8 @@ jobs:
       - name: Host - update
         run: sudo apt-get update
 
-      # - name: Host - upgrade
-      #   run: sudo apt-get -y upgrade
+      - name: Host - upgrade
+        run: sudo apt-get -y upgrade
 
       # No action or other method to bootstrap binfmt. Install from lunar and we get the latest versions and full docker support
       - name: Host - set up qemu-user-static binfmt-support from lunar
