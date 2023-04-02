@@ -61,7 +61,7 @@ jobs:
 
       # Fix this bug https://github.com/actions/runner-images/issues/7192
       - name: Host - phased updates
-        run: echo 'APT::Get::Always-Include-Phased-Updates "false";' | sudo tee /etc/apt/apt.conf.d/99-phased-updates
+        run: printf '%s\n' 'APT::Get::Always-Include-Phased-Updates "false";' | sudo tee /etc/apt/apt.conf.d/99-phased-updates
 
       # Bootstrap Ubuntu Lunar repo so that we can install specific app we may need, like binfmt and qemu-user-static
       - name: Host - set up lunar repo -t lunar
@@ -147,7 +147,7 @@ jobs:
           printf '%s' "ninja_version=${{ env.ninja_version }}" >> $GITHUB_OUTPUT
 
       - name: Host - Set deb dependencies for cmake and ninja
-        run: echo "cmake-deb-deps=openssl" >> $GITHUB_ENV
+        run: printf '%s' "cmake-deb-deps=openssl" >> $GITHUB_ENV
 
       - name: Host - Create deb packages
         uses: jiro4989/build-deb-action@v2
