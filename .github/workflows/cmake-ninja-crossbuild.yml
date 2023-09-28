@@ -199,7 +199,7 @@ jobs:
           replacesArtifacts: true
           tag: "${{ env.cmake_version }}_${{ env.ninja_version }}"
           name: "cmake ${{ env.cmake_version }} ninja ${{ env.ninja_version }}"
-          body: "cmake and ninja built from github latest release on amd64 arm64 armhf for Debian Stretch Buster Bullseye and Ubuntu Bionic Focal Jammy"
+          body: "cmake and ninja built from github latest release on amd64 arm64 armhf for Debian Bullseye Bookworm and Ubuntu Focal Jammy Mantic"
           allowUpdates: true
 
   rerun-on-failure:
