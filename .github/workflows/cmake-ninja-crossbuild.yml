@@ -32,7 +32,7 @@ jobs:
       matrix:
         name: [cmake]
         os_id: [debian, ubuntu]
-        os_codename: [bullseye, bookworm, focal, jammy, mantic]
+        os_codename: [bullseye, bookworm, focal, jammy, noble]
         arch: [amd64, armhf, arm64]
         exclude:
           - os_id: debian
@@ -40,7 +40,7 @@ jobs:
           - os_id: debian
             os_codename: jammy
           - os_id: debian
-            os_codename: mantic
+            os_codename: noble
           - os_id: ubuntu
             os_codename: bullseye
           - os_id: ubuntu
