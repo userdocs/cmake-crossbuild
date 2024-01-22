@@ -61,11 +61,11 @@ jobs:
       - name: Host - phased updates
         run: printf '%s\n' 'APT::Get::Always-Include-Phased-Updates "false";' | sudo tee /etc/apt/apt.conf.d/99-phased-updates
 
-      # Bootstrap Ubuntu Lunar repo so that we can install specific app we may need, like binfmt and qemu-user-static
-      - name: Host - set up lunar repo -t lunar
+      # Bootstrap Ubuntu noble repo so that we can install specific app we may need, like binfmt and qemu-user-static
+      - name: Host - set up noble repo -t noble
         run: |
-          printf '%b\n' 'Package: *\nPin: release n=lunar\nPin-Priority: 50' | sudo tee /etc/apt/preferences
-          printf '%s\n' 'deb http://archive.ubuntu.com/ubuntu/ lunar main universe restricted' | sudo tee /etc/apt/sources.list.d/lunar.list
+          printf '%b\n' 'Package: *\nPin: release n=noble\nPin-Priority: 50' | sudo tee /etc/apt/preferences
+          printf '%s\n' 'deb http://archive.ubuntu.com/ubuntu/ noble main universe restricted' | sudo tee /etc/apt/sources.list.d/noble.list
 
       - name: Host - update
         run: sudo apt-get update
@@ -73,9 +73,9 @@ jobs:
       - name: Host - upgrade
         run: sudo apt-get -y upgrade
 
-      # No action or other method to bootstrap binfmt. Install from lunar and we get the latest versions and full docker support
-      - name: Host - set up qemu-user-static binfmt-support from lunar
-        run: sudo apt install -t lunar libpipeline1 qemu-user-static binfmt-support
+      # No action or other method to bootstrap binfmt. Install from noble and we get the latest versions and full docker support
+      - name: Host - set up qemu-user-static binfmt-support from noble
+        run: sudo apt install -t noble libpipeline1 qemu-user-static binfmt-support
 
       # Why are we doing it like this and not using a container setup? That's how you're supposed to do it, right?
       # qemu-user-static and binfmt-support are not part of the runner images https://github.com/actions/runner-images/blob/main/images/linux/Ubuntu2204-Readme.md
