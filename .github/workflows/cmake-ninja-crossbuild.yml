@@ -6,6 +6,7 @@ on:
       skip_rerun:
         description: "Skip rerun?"
         required: true
+        default: true
         type: boolean
       retries:
         description: "Number of rerun retries"
@@ -61,24 +62,18 @@ jobs:
       - name: Host - phased updates
         run: printf '%s\n' 'APT::Get::Always-Include-Phased-Updates "false";' | sudo tee /etc/apt/apt.conf.d/99-phased-updates
 
-      # Bootstrap Ubuntu noble repo so that we can install specific app we may need, like binfmt and qemu-user-static
-      - name: Host - set up noble repo -t noble
-        run: |
-          printf '%b\n' 'Package: *\nPin: release n=noble\nPin-Priority: 50' | sudo tee /etc/apt/preferences
-          printf '%s\n' 'deb http://archive.ubuntu.com/ubuntu/ noble main universe restricted' | sudo tee /etc/apt/sources.list.d/noble.list
-
       - name: Host - update
         run: sudo apt-get update
 
       - name: Host - upgrade
         run: sudo apt-get -y upgrade
 
-      # No action or other method to bootstrap binfmt. Install from noble and we get the latest versions and full docker support
-      - name: Host - set up qemu-user-static binfmt-support from noble
-        run: sudo apt install -t noble libpipeline1 qemu-user-static binfmt-support
+      # No action or other method to bootstrap binfmt-support and qemu-user-static on the host runner
+      - name: Host - set up qemu-user-static binfmt-support
+        run: sudo apt install libpipeline1 qemu-user-static binfmt-support
 
       # Why are we doing it like this and not using a container setup? That's how you're supposed to do it, right?
-      # qemu-user-static and binfmt-support are not part of the runner images https://github.com/actions/runner-images/blob/main/images/linux/Ubuntu2204-Readme.md
+      # qemu-user-static and binfmt-support are not part of the runner images https://github.com/actions/runner-images?tab=readme-ov-file#available-images
       # We would need to modify the runner to install these before the container starts. Which you cannot do as there is no way to bootstrap the host.
       # So we install them on the host then create/pull a custom docker image that we use to build the multiarch targets.
       # We are always on the host runner but can use any docker image we need with the access the qemu emulation when required.
@@ -210,7 +205,7 @@ jobs:
       actions: write
     runs-on: ubuntu-latest
     env:
-      GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+      GH_TOKEN: "${{ github.TOKEN }}"
     steps:
       - uses: actions/checkout@v4
       - name: Trigger rerun workflow on job failures
