@@ -19,12 +19,13 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: write
+permissions: {}
 
 jobs:
   build:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     outputs:
       cmake_version: ${{ steps.version_info.outputs.cmake_version }}
       ninja_version: ${{ steps.version_info.outputs.ninja_version }}
@@ -57,6 +58,8 @@ jobs:
     steps:
       - name: Host - Checkout action
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Host - set up qemu-user-static binfmt-support
         run: sudo apt install libpipeline1 qemu-user-static binfmt-support
@@ -142,6 +145,8 @@ jobs:
   release:
     name: Upload artifacts to release
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
     needs: build
     if: >
       always() && !failure() && !cancelled() &&
@@ -153,9 +158,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Host - Download artifacts
         uses: actions/download-artifact@v4
+        with:
+          persist-credentials: false
 
       - name: Host - artifacts organise for release
         run: |
