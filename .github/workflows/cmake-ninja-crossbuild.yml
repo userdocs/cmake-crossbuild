@@ -6,7 +6,7 @@ on:
       skip_rerun:
         description: "Skip rerun?"
         required: true
-        default: true
+        default: false
         type: boolean
       retries:
         description: "Number of rerun retries"
@@ -53,7 +53,7 @@ jobs:
     env:
       opt_dir_name: "opt/local"
       cxx_standard: "17"
-      GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+      GH_TOKEN: "${{ github.token }}"
 
     steps:
       - name: Host - Checkout action
@@ -147,10 +147,8 @@ jobs:
     runs-on: ubuntu-24.04-arm
     permissions:
       contents: write
-    needs: build
-    if: >
-      always() && !failure() && !cancelled() &&
-      contains(needs.*.result, 'success') && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
+    needs: [build]
+    if: needs.build.result == 'success'
     env:
       GH_TOKEN: "${{ github.token }}"
       cmake_version: ${{ needs.build.outputs.cmake_version }}
