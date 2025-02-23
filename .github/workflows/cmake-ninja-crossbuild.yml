@@ -161,8 +161,6 @@ jobs:
 
       - name: Host - Download artifacts
         uses: actions/download-artifact@v4
-        with:
-          persist-credentials: false
 
       - name: Host - artifacts organise for release
         run: |
