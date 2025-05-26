@@ -94,6 +94,7 @@ jobs:
           -D CMAKE_BUILD_TYPE="release"
           -D CMAKE_CXX_STANDARD="${{ env.cxx_standard }}"
           -D CMAKE_INSTALL_PREFIX="/home/github/build/${{ env.opt_dir_name }}"
+          -D BUILD_TESTING=off
 
       - name: Docker - Build ninja
         run: docker exec -u github:github -w /home/github/ninja multiarch /home/github/build/${{ env.opt_dir_name }}/bin/cmake --build build -j"$(nproc)"
