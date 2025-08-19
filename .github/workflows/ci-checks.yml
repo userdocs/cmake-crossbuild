@@ -8,11 +8,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions: {}
+
 jobs:
   sh-checker:
     runs-on: ubuntu-24.04-arm
-    permissions:
-      contents: read
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
@@ -31,32 +31,18 @@ jobs:
   zizmor-checker:
     runs-on: ubuntu-24.04-arm
     permissions:
-      contents: read
+      security-events: write
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           persist-credentials: false
 
-      - name: Check GitHub Action workflows
-        shell: bash {0}
-        run: |
-          pip install zizmor
-
-          zizmor="$(zizmor . --gh-token "${{ github.token }}")"
-          exit_code="$?"
-
-          printf '%s\n' "$zizmor"
-
-          printf '%b\n' "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          printf '%s\n' "$zizmor" >> $GITHUB_STEP_SUMMARY
-          printf '%b' "\`\`\`" >> $GITHUB_STEP_SUMMARY
-
-          exit "$exit_code"
+      - name: Run zizmor 🌈
+        uses: zizmorcore/zizmor-action@5ca5fc7a4779c5263a3ffa0e1f693009994446d1 # v0.1.2
 
   editorconfig-checker:
     runs-on: ubuntu-24.04-arm
-    permissions:
-      contents: read
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
