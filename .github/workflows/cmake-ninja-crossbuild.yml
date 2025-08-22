@@ -66,15 +66,26 @@ jobs:
         uses: userdocs/actions/qemu@e74d179578ddcf1cd07cd9eefd0915f33a3bd600 # v1.0.1
 
       - uses: userdocs/actions/qbt_docker@main
+        id: qbt_docker
         with:
-            # if the env.custom file exists, it will be used to pass environment
-            distinct_id: ""
-            use_host_env: "false"
-            container_name: ${{ env.container_name }}
-            os_id: ghcr.io/userdocs/dcb
+            # if the env.custom file exists, it will be used to pass as env to container.
+            # You create env.custom file in the steps before this then it is appended to the host env if use_host_env is true
+            distinct_id: "" # for codex-/return-dispatch action
+            use_host_env: "false" # this puts the host env into the container env like using container: would
+            container_name: "" # defaults to builder; use outputs to set this in next step
+            os_id: ghcr.io/userdocs/dcb # this action works with ghcr.io/userdocs/* images and generic images like debian/ubuntu/alpine
             os_version_id: ${{ matrix.os_id }}-${{ matrix.os_codename }}-${{ matrix.arch }}
-            uid: gh
-            gid: gh
+            custom_docker_commands: "" # custom docker cli commands to run in the container
+            additional_alpine_apps: "curl git" # apk add this string
+            additional_debian_apps: "curl git" # apt install this string
+            uid: gh # default is gh and gh requires sudo. ghcr.io/userdocs/* takes root/gh/github/username. generic will take what you set here
+            gid: 1001 # default is 1001 ghcr.io/userdocs/* root:0 gh 1001:1001 github 1002:1001 username 1000:1000
+
+      - name: Set qbt_docker outputs to environment
+        run: |
+          printf '%s\n' "container_name=${{ steps.qbt_docker.outputs.container_name }}" >> $GITHUB_ENV
+          printf '%s\n' "uid=${{ steps.qbt_docker.outputs.uid }}" >> $GITHUB_ENV
+          printf '%s\n' "wd=${{ steps.qbt_docker.outputs.wd }}" >> $GITHUB_ENV
 
       - name: Host - cmake set cmake_github_tag
         run: printf '%s\n' "cmake_github_tag=$(git ls-remote -q -t --refs https://github.com/Kitware/CMake.git | awk '{sub("refs/tags/", "");sub("(.*)-rc(.*)", ""); print $2 }' | awk '!/^$/' | sort -rV | head -n 1)" >> $GITHUB_ENV
@@ -86,35 +97,35 @@ jobs:
         run: git clone --single-branch --branch ${cmake_github_tag} --shallow-submodules --recurse-submodules --depth 1 https://github.com/Kitware/CMake.git cmake
 
       - name: Docker - Configure cmake
-        run: docker exec -w /home/gh/cmake ${container_name} ./configure --parallel=$(nproc) --no-system-libs --enable-ccache --prefix=/home/gh/build/${opt_dir_name}
+        run: docker exec -w "${wd}/cmake" "${container_name}" ./configure --parallel=$(nproc) --no-system-libs --enable-ccache --prefix="${wd}/build/${opt_dir_name}"
 
       - name: Docker - Make build cmake
-        run: docker exec -w /home/gh/cmake ${container_name} make -j $(nproc)
+        run: docker exec -w "${wd}/cmake" "${container_name}" make -j $(nproc)
 
       - name: Docker - Make install cmake
-        run: docker exec -w /home/gh/cmake ${container_name} make install
+        run: docker exec -w "${wd}/cmake" "${container_name}" make install
 
       - name: Host - Git clone ninja
-        run: git clone --single-branch --branch ${ninja_github_tag} --shallow-submodules --recurse-submodules --depth 1 https://github.com/ninja-build/ninja.git ninja
+        run: git clone --single-branch --branch "${ninja_github_tag}" --shallow-submodules --recurse-submodules --depth 1 "https://github.com/ninja-build/ninja.git" ninja
 
       - name: Docker - Configure ninja
         run: >
-          docker exec -w /home/gh/ninja ${container_name} "/home/gh/build/${opt_dir_name}/bin/cmake" -B build
+          docker exec -w "${wd}/ninja" "${container_name}" "${wd}/build/${opt_dir_name}/bin/cmake" -B build
           -D CMAKE_BUILD_TYPE="release"
           -D CMAKE_CXX_STANDARD="${cxx_standard}"
-          -D CMAKE_INSTALL_PREFIX="/home/gh/build/${opt_dir_name}"
+          -D CMAKE_INSTALL_PREFIX="${wd}/build/${opt_dir_name}"
           -D BUILD_TESTING=off
 
       - name: Docker - Build ninja
-        run: docker exec -w /home/gh/ninja ${container_name} "/home/gh/build/${opt_dir_name}/bin/cmake" --build build -j"$(nproc)"
+        run: docker exec -w ${wd}/ninja "${container_name}" "${wd}/build/${opt_dir_name}/bin/cmake" --build build -j"$(nproc)"
 
       - name: Docker - Install ninja
-        run: docker exec -w /home/gh/ninja ${container_name} "/home/gh/build/${opt_dir_name}/bin/cmake" --install build
+        run: docker exec -w ${wd}/ninja "${container_name}" "${wd}/build/${opt_dir_name}/bin/cmake" --install build
 
       - name: Docker - Test cmake and ninja binaries and set versions
         run: |
-          docker exec -w /home/gh ${container_name} bash -c '/home/gh/build/'"${opt_dir_name}"'/bin/cmake --version 2> /dev/null | awk "NR==1{print \$3}" > cmake.version'
-          docker exec -w /home/gh ${container_name} bash -c '/home/gh/build/'"${opt_dir_name}"'/bin/ninja --version 2> /dev/null > ninja.version'
+          docker exec "${container_name}" bash -c "${wd}/build/${opt_dir_name}/bin/cmake --version 2\> /dev/null \| awk \"NR==1{print \$3}\" \> cmake.version"
+          docker exec "${container_name}" bash -c "${wd}/build/${opt_dir_name}/bin/ninja --version 2\> /dev/null \> ninja.version"
 
       - name: Host - Set cmake and ninja versions to variable
         id: version_info
