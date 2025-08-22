@@ -124,8 +124,8 @@ jobs:
 
       - name: Docker - Test cmake and ninja binaries and set versions
         run: |
-          docker exec "${container_name}" bash -c "${wd}/build/${opt_dir_name}/bin/cmake --version 2\> /dev/null \| awk \"NR==1{print \$3}\" \> cmake.version"
-          docker exec "${container_name}" bash -c "${wd}/build/${opt_dir_name}/bin/ninja --version 2\> /dev/null \> ninja.version"
+          docker exec "${container_name}" bash -c "${wd}/build/${opt_dir_name}/bin/cmake --version 2> /dev/null | awk 'NR==1{print \$3}' > cmake.version"
+          docker exec "${container_name}" bash -c "${wd}/build/${opt_dir_name}/bin/ninja --version 2> /dev/null > ninja.version"
 
       - name: Host - Set cmake and ninja versions to variable
         id: version_info
