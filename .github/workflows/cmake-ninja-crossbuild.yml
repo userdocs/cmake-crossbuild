@@ -76,8 +76,8 @@ jobs:
             os_id: ghcr.io/userdocs/dcb # this action works with ghcr.io/userdocs/* images and generic images like debian/ubuntu/alpine
             os_version_id: ${{ matrix.os_id }}-${{ matrix.os_codename }}-${{ matrix.arch }}
             custom_docker_commands: "" # custom docker cli commands to run in the container
-            additional_alpine_apps: "curl git" # apk add this string
-            additional_debian_apps: "curl git" # apt install this string
+            additional_alpine_apps: "" # apk add this string
+            additional_debian_apps: "" # apt install this string
             uid: gh # default is gh and gh requires sudo. ghcr.io/userdocs/* takes root/gh/github/username. generic will take what you set here
             gid: 1001 # default is 1001 ghcr.io/userdocs/* root:0 gh 1001:1001 github 1002:1001 username 1000:1000
 
