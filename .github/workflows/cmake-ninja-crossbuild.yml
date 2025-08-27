@@ -63,12 +63,12 @@ jobs:
           persist-credentials: false
 
       - name: Host - Bootstrap qemu
-        uses: userdocs/actions/qemu@749d0010d8abde6c8a8ffc720856de5e799bdfea # v1.0.2
+        uses: userdocs/actions/qemu@main # v1.0.2
         with:
           target_arch: ${{ matrix.arch }}
 
       - name: Host - Bootstrap docker container
-        uses: userdocs/actions/qbt_docker@749d0010d8abde6c8a8ffc720856de5e799bdfea # v1.0.2
+        uses: userdocs/actions/qbt_docker@main # v1.0.2
         with:
             os_id: ghcr.io/userdocs/dcb
             os_version_id: ${{ matrix.os_id }}-${{ matrix.os_codename }}-${{ matrix.arch }}
@@ -80,7 +80,7 @@ jobs:
         run: printf '%s\n' "ninja_github_tag=$(git ls-remote -q -t --refs https://github.com/ninja-build/ninja.git | awk '/v/{sub("refs/tags/", ""); print $2 }' | awk '!/^$/' | sort -rV | head -n 1)" >> $GITHUB_ENV
 
       - name: Host - Git clone cmake
-        run: git clone --single-branch --branch ${cmake_github_tag} --shallow-submodules --recurse-submodules --depth 1 https://github.com/Kitware/CMake.git cmake
+        run: git clone --single-branch --branch "${cmake_github_tag}" --shallow-submodules --recurse-submodules --depth=1 "https://github.com/Kitware/CMake.git" cmake
 
       - name: Docker - Configure cmake
         run: docker exec -w "${wd}/cmake" "${container_name}" ./configure --parallel=$(nproc) --no-system-libs --enable-ccache --prefix="${wd}/build/${opt_dir_name}"
